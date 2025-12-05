@@ -194,6 +194,7 @@ const MessageCard = ({
                       setReplyContent('');
                     }}
                     className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
+                    title="取消回复"
                   >
                     <X size={16} />
                   </button>
@@ -201,6 +202,7 @@ const MessageCard = ({
                     type="submit"
                     disabled={isReplying || !replyContent.trim()}
                     className="p-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all hover:shadow-emerald-500/25"
+                    title="发送回复"
                   >
                     {isReplying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                   </button>
@@ -1110,6 +1112,7 @@ const Profile = () => {
                                                 <img 
                                                     src={`https://cravatar.eu/helmavatar/${user.username}/32.png`} 
                                                     className="w-6 h-6 rounded bg-slate-200" 
+                                                    alt={user.username}
                                                 />
                                                 <span>以 {user.username} 身份</span>
                                             </div>
@@ -1313,7 +1316,7 @@ const Profile = () => {
                   <h3 className="text-2xl font-bold text-slate-900 dark:text-white">编辑个人资料</h3>
                   <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">展示最独特的你</p>
                 </div>
-                <button onClick={() => setShowEditModal(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <button onClick={() => setShowEditModal(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="关闭">
                   <X size={24} />
                 </button>
               </div>
@@ -1369,6 +1372,7 @@ const Profile = () => {
                           <button 
                             onClick={() => handleRemoveTag(tag)} 
                             className="p-0.5 rounded-md hover:bg-emerald-200 dark:hover:bg-emerald-500/30 text-emerald-400 hover:text-emerald-700 transition-colors"
+                            title="移除标签"
                           >
                             <X size={14} />
                           </button>
@@ -1396,6 +1400,7 @@ const Profile = () => {
                       onClick={handleAddTag}
                       disabled={editForm.tags.length >= 6 || !editForm.newTag.trim()}
                       className="px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 active:scale-95"
+                      title="添加标签"
                     >
                       <Plus size={20} />
                     </button>
@@ -1471,7 +1476,7 @@ const Profile = () => {
                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">上传新照片</h3>
                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">分享你在服务器里的精彩瞬间</p>
                 </div>
-                <button onClick={closeUploadModal} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <button onClick={closeUploadModal} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="关闭">
                   <X size={24} />
                 </button>
               </div>
@@ -1596,6 +1601,7 @@ const Profile = () => {
                <button 
                   onClick={() => setSelectedAlbum(null)} 
                   className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors md:hidden"
+                  title="关闭"
                 >
                   <X size={20} />
                 </button>
@@ -1632,7 +1638,7 @@ const Profile = () => {
                               <span>{selectedAlbum.username}</span>
                            </div>
                         </div>
-                        <button onClick={() => setSelectedAlbum(null)} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hidden md:block">
+                        <button onClick={() => setSelectedAlbum(null)} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hidden md:block" title="关闭">
                           <X size={20} />
                         </button>
                      </div>
@@ -1703,6 +1709,7 @@ const Profile = () => {
                                       } catch (e) { alert('删除失败'); }
                                    }}
                                    className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                   title="删除评论"
                                  >
                                    <Trash2 size={14} />
                                  </button>
@@ -1727,6 +1734,7 @@ const Profile = () => {
                              type="submit"
                              disabled={!newComment.trim() || isSendingComment}
                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md disabled:opacity-50"
+                             title="发送评论"
                            >
                               {isSendingComment ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                            </button>
