@@ -286,15 +286,21 @@ const Navbar = () => {
             <div className="px-4 py-6 space-y-6 max-h-[80vh] overflow-y-auto">
               {user ? (
                  <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50">
-                    <img 
-                      src={`https://cravatar.eu/helmavatar/${user.username}/64.png`} 
-                      alt={user.username}
-                      className="w-12 h-12 rounded-xl shadow-sm"
-                    />
-                    <div className="flex-1">
-                      <div className="font-bold text-lg text-slate-900 dark:text-white">{user.username}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">已登录</div>
-                    </div>
+                    <Link 
+                      to={`/player/${user.username}`}
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-4 flex-1"
+                    >
+                      <img 
+                        src={`https://cravatar.eu/helmavatar/${user.username}/64.png`} 
+                        alt={user.username}
+                        className="w-12 h-12 rounded-xl shadow-sm"
+                      />
+                      <div className="flex-1">
+                        <div className="font-bold text-lg text-slate-900 dark:text-white">{user.username}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">点击查看个人主页</div>
+                      </div>
+                    </Link>
                     <button 
                       onClick={logout} 
                       className="px-4 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-medium"

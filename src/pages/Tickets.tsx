@@ -9,7 +9,7 @@ import {
   MessageSquare, Clock, CheckCircle, XCircle, 
   AlertCircle, Loader2, ChevronRight, Send, 
   FileText, History, Image as ImageIcon,
-  ShieldCheck
+  ShieldCheck, ArrowLeft
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Ticket, TicketLog, CreateTicketDTO } from '../types/ticket';
@@ -312,7 +312,10 @@ const TicketCenter = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[calc(100vh-240px)] min-h-[600px]">
           
           {/* Ticket List Column */}
-          <div className="lg:col-span-1 flex flex-col bg-white/80 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div className={clsx(
+            "lg:col-span-1 flex flex-col bg-white/80 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden",
+            selectedTicketId ? "hidden lg:flex" : "flex"
+          )}>
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto scrollbar-hide">
               {['all', 'open', 'in_progress', 'resolved', 'rejected'].map(status => (
                 <button
@@ -376,7 +379,10 @@ const TicketCenter = () => {
           </div>
 
           {/* Detail Column */}
-          <div className="lg:col-span-2 bg-white/80 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col relative">
+          <div className={clsx(
+            "lg:col-span-2 bg-white/80 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex-col relative",
+            selectedTicketId ? "flex" : "hidden lg:flex"
+          )}>
             {detailLoading ? (
                <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm z-10">
                  <Loader2 size={40} className="animate-spin text-brand-500" />
@@ -391,6 +397,12 @@ const TicketCenter = () => {
                 {/* Detail Header */}
                 <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-950/50">
                   <div className="flex items-center gap-3 mb-4">
+                    <button 
+                      onClick={() => setSelectedTicketId(null)}
+                      className="lg:hidden mr-1 p-1.5 -ml-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <ArrowLeft size={20} />
+                    </button>
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">
                       工单 #{ticketDetail.item.id}
                     </h2>

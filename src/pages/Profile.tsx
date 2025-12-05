@@ -61,6 +61,8 @@ interface PlayerDetails {
   qq: string | null;
   ban_history: any[];
   ban_count: number;
+  warn_history: any[];
+  warn_count: number;
 }
 
 interface Message {
@@ -81,7 +83,8 @@ const MessageCard = ({
   msg, 
   depth = 0, 
   user, 
-  isAdmin, 
+  isAdmin,
+  profileOwner,
   replyingTo, 
   setReplyingTo, 
   replyContent, 
@@ -92,6 +95,7 @@ const MessageCard = ({
   formatTime 
 }: any) => {
   const isReplyingToThis = replyingTo === msg.id;
+  const canDelete = isAdmin || (user && user.username === msg.player) || (user && profileOwner && user.username === profileOwner);
 
   return (
     <motion.div 
@@ -110,7 +114,7 @@ const MessageCard = ({
         depth > 0 ? "bg-slate-50/80 dark:bg-slate-800/30" : "bg-white/60 dark:bg-slate-900/60"
       )}>
         <div className="flex items-start gap-4">
-          <div className="relative flex-shrink-0">
+          <Link to={`/player/${msg.player}`} className="relative flex-shrink-0">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden ring-2 ring-slate-100 dark:ring-slate-700 shadow-sm group-hover:ring-emerald-400 dark:group-hover:ring-emerald-500 transition-all duration-300">
               <img
                 src={`https://cravatar.eu/helmavatar/${encodeURIComponent(msg.player)}/128.png`}
@@ -122,20 +126,20 @@ const MessageCard = ({
                 }}
               />
             </div>
-          </div>
+          </Link>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-base text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
+                <Link to={`/player/${msg.player}`} className="font-bold text-base text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300 hover:underline">
                   {msg.player}
-                </span>
+                </Link>
                 <span className="text-xs font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                   #{msg.id}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-400 dark:text-slate-500">
+                <span className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">
                   {formatTime(msg.timestamp)}
                 </span>
                 {user && !isReplyingToThis && (
@@ -147,22 +151,21 @@ const MessageCard = ({
                     <Reply size={14} />
                   </button>
                 )}
+                {canDelete && (
+                  <button
+                    onClick={() => handleDelete(msg.id)}
+                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    title="删除留言"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
             
             <p className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
               {msg.content}
             </p>
-
-            {isAdmin && (
-              <button
-                onClick={() => handleDelete(msg.id)}
-                className="absolute top-4 right-12 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200"
-                title="删除留言"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
           </div>
         </div>
 
@@ -217,6 +220,7 @@ const MessageCard = ({
               depth={depth + 1} 
               user={user}
               isAdmin={isAdmin}
+              profileOwner={profileOwner}
               replyingTo={replyingTo}
               setReplyingTo={setReplyingTo}
               replyContent={replyContent}
@@ -334,20 +338,18 @@ const Profile = () => {
 
       // 1. Upload Image First
       const imageFormData = new FormData();
-      imageFormData.append('file', fileToUpload); 
+      imageFormData.append('image', fileToUpload); 
       
-      const uploadRes = await fetch('https://api.xinyew.cn/api/jdtc', {
+      const uploadRes = await fetch('https://img-api.kuke.ink/raw', {
          method: 'POST',
          body: imageFormData
       });
       
-      const uploadData = await uploadRes.json();
-      
-      if (uploadData.errno !== 0) {
-        throw new Error(uploadData.message || '图片上传失败');
+      if (!uploadRes.ok) {
+        throw new Error('图片上传失败');
       }
       
-      const imageUrl = uploadData.data.url;
+      const imageUrl = await uploadRes.text();
       
       // 2. Create Album Entry
       await api.post('/api/album/upload', {
@@ -813,6 +815,12 @@ const Profile = () => {
                      {details.ban_count} 次封禁记录
                    </span>
                 )}
+                 {details.warn_count > 0 && (
+                   <span className="px-3 py-1 rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-sm font-medium flex items-center gap-1.5">
+                     <AlertTriangle size={14} />
+                     {details.warn_count} 次警告记录
+                   </span>
+                )}
                 
                 {/* Edit Profile Button */}
                 {user && user.username === details.username && (
@@ -827,25 +835,24 @@ const Profile = () => {
               </div>
             </div>
 
-            <div className="flex flex-col items-center md:items-end justify-between min-h-[8rem] self-stretch">
-               {/* Tags (Moved to Top Right of Content Area) */}
-               <div className="flex flex-wrap justify-center md:justify-end gap-2 w-full mb-4 md:mb-0">
-                 {profile && profile.tags && profile.tags.length > 0 && profile.tags.map((tag, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 whitespace-nowrap">
-                      #{tag}
-                    </span>
-                 ))}
-               </div>
 
-               <div className="flex flex-col items-center md:items-end gap-1 mb-2 mt-auto">
-                   <div className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
-                     最后登录
-                   </div>
-                   <div className="text-slate-900 dark:text-white font-medium font-mono text-lg">
-                     {details.last_login ? new Date(details.last_login).toLocaleString() : '未知'}
-                   </div>
-               </div>
-            </div>
+          </div>
+
+          <div className="absolute top-6 right-6 flex flex-wrap justify-end gap-2 max-w-[40%]">
+             {profile && profile.tags && profile.tags.length > 0 && profile.tags.map((tag, idx) => (
+                <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 whitespace-nowrap shadow-sm">
+                  #{tag}
+                </span>
+             ))}
+          </div>
+          
+          <div className="absolute bottom-4 right-8 flex flex-col items-end gap-1">
+             <div className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
+               最后登录
+             </div>
+             <div className="text-slate-900 dark:text-white font-medium font-mono text-lg">
+               {details.last_login ? new Date(details.last_login).toLocaleString() : '未知'}
+             </div>
           </div>
         </motion.div>
 
@@ -1028,6 +1035,52 @@ const Profile = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Violation Records */}
+                    {(details.warn_count > 0 || details.ban_count > 0) && (
+                        <div className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <AlertTriangle size={20} className="text-slate-400" />
+                                违规记录
+                            </h3>
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                                {details.ban_history && details.ban_history.map((ban, idx) => (
+                                    <div key={`ban-${idx}`} className="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded font-bold uppercase">封禁</span>
+                                            <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                                                {new Date(ban.time || ban.created).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div className="text-sm text-slate-700 dark:text-slate-300 font-medium mb-1 break-words">
+                                            {ban.reason}
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs text-slate-500">
+                                            <span>操作: {ban.banned_by_name}</span>
+                                            <span>{ban.active ? '生效中' : '已过期'}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {details.warn_history && details.warn_history.map((warn, idx) => (
+                                    <div key={`warn-${idx}`} className="p-3 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-100 dark:border-orange-900/30">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="px-1.5 py-0.5 bg-orange-500 text-white text-[10px] rounded font-bold uppercase">警告</span>
+                                            <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                                                {new Date(warn.time || warn.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div className="text-sm text-slate-700 dark:text-slate-300 font-medium mb-1 break-words">
+                                            {warn.reason}
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs text-slate-500">
+                                            <span>操作: {warn.operator}</span>
+                                            {warn.kicked && <span>已踢出</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                  </div>
      
                  {/* Right Column: Message Board */}
@@ -1096,6 +1149,7 @@ const Profile = () => {
                                         msg={msg} 
                                         user={user}
                                         isAdmin={isAdmin}
+                                        profileOwner={details.username}
                                         replyingTo={replyingTo}
                                         setReplyingTo={setReplyingTo}
                                         replyContent={replyContent}
@@ -1249,115 +1303,144 @@ const Profile = () => {
               onClick={() => setShowEditModal(false)}
             />
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-white/20 ring-1 ring-black/5"
             >
-              <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">编辑个人资料</h3>
-                <button onClick={() => setShowEditModal(false)} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
-                  <X size={20} />
+              <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white">编辑个人资料</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">展示最独特的你</p>
+                </div>
+                <button onClick={() => setShowEditModal(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                  <X size={24} />
                 </button>
               </div>
               
-              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
                 {/* Signature */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    个性签名 (50字以内)
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    个性签名 <span className="text-slate-400 font-normal text-xs ml-1">(50字以内)</span>
                   </label>
                   <input
                     type="text"
                     value={editForm.signature}
                     onChange={(e) => setEditForm({...editForm, signature: e.target.value})}
-                    className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 text-slate-900 dark:text-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none placeholder:text-slate-400"
                     maxLength={50}
                     placeholder="写一句简短的签名..."
                   />
                 </div>
 
                 {/* Bio */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    个人简介 (500字以内)
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    个人简介 <span className="text-slate-400 font-normal text-xs ml-1">(500字以内)</span>
                   </label>
                   <textarea
                     value={editForm.bio}
                     onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
-                    className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 h-32 resize-none"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 text-slate-900 dark:text-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none h-32 resize-none placeholder:text-slate-400"
                     maxLength={500}
                     placeholder="介绍一下你自己..."
                   />
                 </div>
 
                 {/* Tags */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    个人标签 (最多6个)
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    个人标签 <span className="text-slate-400 font-normal text-xs ml-1">(最多6个)</span>
                   </label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {editForm.tags.map(tag => (
-                      <div key={tag} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded border border-emerald-200 dark:border-emerald-800">
-                        <span className="text-sm">{tag}</span>
-                        <button onClick={() => handleRemoveTag(tag)} className="hover:text-red-500">
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
+                  
+                  <div className="flex flex-wrap gap-2 min-h-[40px]">
+                    <AnimatePresence mode="popLayout">
+                      {editForm.tags.map(tag => (
+                        <motion.div 
+                          layout
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.8, opacity: 0 }}
+                          key={tag} 
+                          className="group flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-100 dark:border-emerald-500/20 shadow-sm"
+                        >
+                          <span className="text-sm font-medium">{tag}</span>
+                          <button 
+                            onClick={() => handleRemoveTag(tag)} 
+                            className="p-0.5 rounded-md hover:bg-emerald-200 dark:hover:bg-emerald-500/30 text-emerald-400 hover:text-emerald-700 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
+
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={editForm.newTag}
-                      onChange={(e) => setEditForm({...editForm, newTag: e.target.value})}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                      className="flex-1 rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500"
-                      placeholder="添加新标签..."
-                      maxLength={10}
-                    />
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={editForm.newTag}
+                        onChange={(e) => setEditForm({...editForm, newTag: e.target.value})}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none placeholder:text-slate-400"
+                        placeholder="输入新标签..."
+                        maxLength={10}
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
+                        回车添加
+                      </div>
+                    </div>
                     <button 
                       onClick={handleAddTag}
-                      disabled={editForm.tags.length >= 6}
-                      className="px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50"
+                      disabled={editForm.tags.length >= 6 || !editForm.newTag.trim()}
+                      className="px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 active:scale-95"
                     >
-                      <Plus size={18} />
+                      <Plus size={20} />
                     </button>
                   </div>
-                  <div className="mt-2 text-xs text-slate-500">
-                    推荐标签: 生存玩家, 建筑党, 红石科技, PVP, 跑酷, 休闲
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {["生存玩家", "冒险玩家", "建筑玩家", "跑酷", "肝帝", "红石大佬", "粘液科技", "PVP大佬", "起床大神"].map(tag => (
-                      <button
-                        key={tag}
-                        onClick={() => {
-                          if (!editForm.tags.includes(tag) && editForm.tags.length < 6) {
-                            setEditForm(prev => ({...prev, tags: [...prev.tags, tag]}));
-                          }
-                        }}
-                        className="px-2 py-0.5 text-xs border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
-                      >
-                        {tag}
-                      </button>
-                    ))}
+                  
+                  <div className="pt-2">
+                    <div className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wider">推荐标签</div>
+                    <div className="flex flex-wrap gap-2">
+                      {["生存玩家", "冒险玩家", "建筑玩家", "跑酷", "肝帝", "红石大佬", "粘液科技", "PVP大佬", "起床大神"].map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            if (!editForm.tags.includes(tag) && editForm.tags.length < 6) {
+                              setEditForm(prev => ({...prev, tags: [...prev.tags, tag]}));
+                            }
+                          }}
+                          disabled={editForm.tags.includes(tag)}
+                          className={clsx(
+                            "px-3 py-1.5 text-xs rounded-lg transition-all border",
+                            editForm.tags.includes(tag)
+                              ? "bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent cursor-not-allowed"
+                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:shadow-sm cursor-pointer"
+                          )}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-950/50">
+              <div className="px-8 py-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
                 <button 
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  className="px-6 py-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
                 >
                   取消
                 </button>
                 <button 
                   onClick={handleUpdateProfile}
                   disabled={isUpdating}
-                  className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-2 font-medium shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95"
                 >
-                  {isUpdating && <Loader2 size={16} className="animate-spin" />}
+                  {isUpdating && <Loader2 size={18} className="animate-spin" />}
                   保存更改
                 </button>
               </div>
@@ -1591,14 +1674,18 @@ const Profile = () => {
                      ) : (
                         albumComments.map(comment => (
                            <div key={comment.id} className="flex gap-3 group">
-                              <img 
-                                src={`https://cravatar.eu/helmavatar/${comment.username}/32.png`} 
-                                alt={comment.username}
-                                className="w-8 h-8 rounded-md flex-shrink-0 bg-slate-200"
-                              />
+                              <Link to={`/player/${comment.username}`}>
+                                <img 
+                                  src={`https://cravatar.eu/helmavatar/${comment.username}/32.png`} 
+                                  alt={comment.username}
+                                  className="w-8 h-8 rounded-md flex-shrink-0 bg-slate-200 hover:opacity-80 transition-opacity"
+                                />
+                              </Link>
                               <div className="flex-1 min-w-0">
                                  <div className="flex items-baseline justify-between mb-1">
-                                    <span className="font-bold text-sm text-slate-900 dark:text-white">{comment.username}</span>
+                                    <Link to={`/player/${comment.username}`} className="font-bold text-sm text-slate-900 dark:text-white hover:text-emerald-500 hover:underline transition-colors">
+                                      {comment.username}
+                                    </Link>
                                     <span className="text-xs text-slate-400">{new Date(comment.created_at).toLocaleDateString()}</span>
                                  </div>
                                  <p className="text-sm text-slate-600 dark:text-slate-300 break-words">{comment.content}</p>

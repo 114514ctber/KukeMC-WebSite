@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTitle } from '../hooks/useTitle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Trash2, Lock, Unlock, Reply, AlertCircle, Loader2, Send, X, User as UserIcon } from 'lucide-react';
+import { MessageSquare, Trash2, Reply, AlertCircle, Loader2, Send, X, User as UserIcon } from 'lucide-react';
 import clsx from 'clsx';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 interface Message {
   id: number;
   player: string;
+  recipient?: string | null;
   content: string;
   timestamp: number;
   parent_id: number | null;
@@ -68,7 +69,7 @@ const MessageCard = ({
       )}>
         <div className="flex items-start gap-4">
           {/* Avatar */}
-          <div className="relative flex-shrink-0">
+          <Link to={`/player/${msg.player}`} className="relative flex-shrink-0">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden ring-2 ring-slate-100 dark:ring-slate-700 shadow-sm group-hover:ring-emerald-400 dark:group-hover:ring-emerald-500 transition-all duration-300">
               <img
                 src={`https://cravatar.eu/helmavatar/${encodeURIComponent(msg.player)}/128.png`}
@@ -80,22 +81,37 @@ const MessageCard = ({
                 }}
               />
             </div>
-          </div>
+          </Link>
           
           <div className="flex-1 min-w-0">
             {/* Header Info */}
             <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-base text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link to={`/player/${msg.player}`} className="font-bold text-base text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300 hover:underline">
                   {msg.player}
-                </span>
+                </Link>
                 <span className="text-xs font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                   #{msg.id}
                 </span>
-                {/* Admin Badge if needed, logic can be added here */}
+                {msg.recipient && (
+                  <div className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-0.5 rounded-full">
+                    <span className="text-xs">To</span>
+                    <Link 
+                      to={`/player/${msg.recipient}`}
+                      className="font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <img 
+                        src={`https://cravatar.eu/helmavatar/${msg.recipient}/16.png`} 
+                        className="w-4 h-4 rounded-sm" 
+                        alt=""
+                      />
+                      {msg.recipient}
+                    </Link>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-400 dark:text-slate-500">
+                <span className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">
                   {formatTime(msg.timestamp)}
                 </span>
                 {user && !isReplyingToThis && (
@@ -107,6 +123,16 @@ const MessageCard = ({
                     <Reply size={14} />
                   </button>
                 )}
+                {/* Delete Button (Admin or Owner) - Moved here to avoid overlap */}
+                {(isAdmin || (user && user.username === msg.player)) && (
+                  <button
+                    onClick={() => handleDelete(msg.id)}
+                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    title="删除留言"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
             
@@ -114,17 +140,6 @@ const MessageCard = ({
             <p className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
               {msg.content}
             </p>
-
-            {/* Delete Button (Admin or Owner) */}
-            {(isAdmin || (user && user.username === msg.player)) && (
-              <button
-                onClick={() => handleDelete(msg.id)}
-                className="absolute top-4 right-12 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200"
-                title="删除留言"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
           </div>
         </div>
 
@@ -207,9 +222,6 @@ const Messages = () => {
   // Admin State
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminKey, setAdminKey] = useState<string | null>(null);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [loginKey, setLoginKey] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
 
   // Posting State
   const [postContent, setPostContent] = useState('');
@@ -328,31 +340,6 @@ const Messages = () => {
     }
   };
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loginKey) return;
-
-    setLoginLoading(true);
-    try {
-      await api.post('/api/message/admin/verify', { key: loginKey });
-      localStorage.setItem(ADMIN_KEY_STORAGE, loginKey);
-      setAdminKey(loginKey);
-      setIsAdmin(true);
-      setShowAdminLogin(false);
-      setLoginKey('');
-    } catch (err) {
-      alert('密钥错误');
-    } finally {
-      setLoginLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem(ADMIN_KEY_STORAGE);
-    setAdminKey(null);
-    setIsAdmin(false);
-  };
-
   const handleDelete = async (id: number) => {
     if (!confirm('确定要删除这条留言吗？')) return;
     
@@ -398,49 +385,7 @@ const Messages = () => {
               分享游戏心得，记录精彩瞬间
             </p>
           </div>
-          <button
-            onClick={() => isAdmin ? handleLogout() : setShowAdminLogin(!showAdminLogin)}
-            className={clsx(
-              "p-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 text-sm font-medium",
-              isAdmin 
-                ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" 
-                : "bg-white/50 dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-white hover:shadow-md dark:hover:bg-white/10"
-            )}
-          >
-            {isAdmin ? <Unlock size={18} /> : <Lock size={18} />}
-            <span className="hidden sm:inline">{isAdmin ? '退出管理' : '管理员'}</span>
-          </button>
         </div>
-
-        {/* Admin Login Panel */}
-        <AnimatePresence>
-          {showAdminLogin && !isAdmin && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden mb-6"
-            >
-              <form onSubmit={handleAdminLogin} className="glass-panel p-4 rounded-xl flex items-center gap-3 border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
-                <input
-                  type="password"
-                  value={loginKey}
-                  onChange={(e) => setLoginKey(e.target.value)}
-                  placeholder="请输入管理员密钥..."
-                  className="flex-1 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-all"
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  disabled={loginLoading || !loginKey}
-                  className="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all"
-                >
-                  {loginLoading ? <Loader2 size={18} className="animate-spin" /> : '验证'}
-                </button>
-              </form>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Main Posting Area */}
         <div className="mb-8">

@@ -10,7 +10,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <ThemeProvider defaultTheme="dark" storageKey="kukemc-theme">
+        <ThemeProvider defaultTheme="system" storageKey="kukemc-theme">
           <App />
         </ThemeProvider>
       </AuthProvider>

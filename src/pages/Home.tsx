@@ -283,7 +283,7 @@ const Home = () => {
             className="w-full h-full"
           >
             <img 
-              src="https://m.ccw.site/gandi_application/user_assets/a5417dc25fd821159f3e8362ba8e1ff2.jpg" 
+              src="https://m.ccw.site/gandi_application/user_assets/e2978a6d51d9f4f7448569637310f02c.png" 
               alt="Background" 
               className="w-full h-full object-cover"
             />
