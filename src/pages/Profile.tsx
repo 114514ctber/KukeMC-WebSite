@@ -530,11 +530,10 @@ const Profile = () => {
   };
 
   const openEditModal = () => {
-    if (!profile) return;
     setEditForm({
-      signature: profile.signature || '',
-      bio: profile.bio || '',
-      tags: [...profile.tags],
+      signature: profile?.signature || '',
+      bio: profile?.bio || '',
+      tags: profile?.tags ? [...profile.tags] : [],
       newTag: ''
     });
     setShowEditModal(true);
