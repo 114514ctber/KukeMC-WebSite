@@ -1021,6 +1021,60 @@ const Profile = () => {
     }
   };
 
+  const handlePostUpdate = (updatedPost: Post) => {
+    setUserPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+    
+    // Also update collections if we are modifying collection status
+    // Or if the post exists in collections (e.g. updating like status of a collected post)
+    setUserCollections(prev => {
+        const isInCollection = prev.some(p => p.id === updatedPost.id);
+        if (isInCollection) {
+            if (!updatedPost.is_collected) {
+                return prev.filter(p => p.id !== updatedPost.id);
+            }
+            return prev.map(p => p.id === updatedPost.id ? updatedPost : p);
+        } else if (updatedPost.is_collected) {
+            // Add to collection if not present
+            return [updatedPost, ...prev];
+        }
+        return prev;
+    });
+
+    setTabDataCache(prev => {
+      // Update in posts cache
+      const newPostsData = prev.posts.data.map(p => p.id === updatedPost.id ? updatedPost : p);
+      
+      // Update in collections cache
+      let newCollectionsData = prev.collections.data;
+      const isInCollectionCache = newCollectionsData.some(p => p.id === updatedPost.id);
+      
+      if (isInCollectionCache) {
+          if (!updatedPost.is_collected) {
+              newCollectionsData = newCollectionsData.filter(p => p.id !== updatedPost.id);
+          } else {
+              newCollectionsData = newCollectionsData.map(p => p.id === updatedPost.id ? updatedPost : p);
+          }
+      } else if (updatedPost.is_collected) {
+          newCollectionsData = [updatedPost, ...newCollectionsData];
+      }
+
+      return {
+        posts: { ...prev.posts, data: newPostsData },
+        collections: { ...prev.collections, data: newCollectionsData }
+      };
+    });
+  };
+
+  const handlePostDelete = (postId: number) => {
+    setUserPosts(prev => prev.filter(p => p.id !== postId));
+    setUserCollections(prev => prev.filter(p => p.id !== postId));
+    
+    setTabDataCache(prev => ({
+      posts: { ...prev.posts, data: prev.posts.data.filter(p => p.id !== postId) },
+      collections: { ...prev.collections, data: prev.collections.data.filter(p => p.id !== postId) }
+    }));
+  };
+
   const formatTime = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString('zh-CN', {
       month: '2-digit',
@@ -1683,7 +1737,12 @@ const Profile = () => {
                   </div>
                 ) : userPosts.length > 0 ? (
                   userPosts.map(post => (
-                    <PostCard key={post.id} post={post} />
+                    <PostCard 
+                      key={post.id} 
+                      post={post} 
+                      onUpdate={handlePostUpdate}
+                      onDelete={handlePostDelete}
+                    />
                   ))
                 ) : (
                   <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">

@@ -54,7 +54,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         'edit-mode',
       ],
       hint: {
-        at: (key) => {
+        at: (key: string) => {
             // Note: Vditor expects synchronous return. 
             // We trigger fetch if key is present, but return cached/empty for now.
             // This is a best-effort approach.
@@ -69,7 +69,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             // Return whatever we have that matches
             return userCacheRef.current.filter(u => u.value.toLowerCase().includes(key.toLowerCase()));
         }
-      },
+      } as any,
       after: () => {
         setVditor(vditorInstance);
       },
@@ -132,7 +132,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     }
   }, [vditor]);
 
-  return <div ref={editorRef} className={clsx("vditor-reset", className)} />;
+  return <div ref={editorRef} className={clsx("vditor-reset", minHeight, className)} />;
 };
 
 export default MarkdownEditor;

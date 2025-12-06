@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Loader2, Send, Plus, Flame } from 'lucide-react';
+import { X, Loader2, Send, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MarkdownEditor from './MarkdownEditor';
 import { createPost, getHotTopics } from '../services/activity';
-import clsx from 'clsx';
 
 interface CreatePostModalProps {
   isOpen: boolean;
