@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { useTitle } from '../hooks/useTitle';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Ticket as TicketIcon, Plus, 
   MessageSquare, Clock, CheckCircle, XCircle, 
@@ -101,16 +102,88 @@ const ImageUpload = ({ onUploadComplete, disabled }: { onUploadComplete: (url: s
   );
 };
 
+
+const getWsUrl = (path: string) => {
+  const baseUrl = import.meta.env.VITE_API_BASE || 'https://api.kuke.ink';
+  const protocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
+  const host = baseUrl.replace(/^https?:\/\//, '');
+  const cleanHost = host.endsWith('/') ? host.slice(0, -1) : host;
+  return `${protocol}://${cleanHost}${path}`;
+};
+
 const TicketCenter = () => {
   useTitle('工单中心 - KukeMC');
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [playerUuid, setPlayerUuid] = useState<string | null>(null);
   
+  // Support Status
+  const [isSupportOnline, setIsSupportOnline] = useState(false);
+  const [isAdminActive, setIsAdminActive] = useState(false);
+
+  // Global WS
+  useEffect(() => {
+    const url = getWsUrl('/api/feedback/ws/global');
+    const ws = new WebSocket(url);
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'support_status') {
+          setIsSupportOnline(data.online);
+        }
+      } catch (e) { console.error(e); }
+    };
+    return () => ws.close();
+  }, []);
+
+  // Admin Heartbeat
+  useEffect(() => {
+    if (user?.role === 'admin' && isAdminActive) {
+      const interval = setInterval(() => {
+        api.post('/api/feedback/support/heartbeat');
+      }, 60000);
+      api.post('/api/feedback/support/heartbeat');
+      return () => clearInterval(interval);
+    }
+  }, [isAdminActive, user]);
+
+  const toggleAdminStatus = async () => {
+      const newState = !isAdminActive;
+      setIsAdminActive(newState);
+      if (newState) {
+          await api.post('/api/feedback/support/heartbeat');
+      } else {
+          await api.post('/api/feedback/support/offline');
+      }
+  };
+
   // Detail View State
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [ticketDetail, setTicketDetail] = useState<{ item: Ticket, logs: TicketLog[] } | null>(null);
+
+  // Chat WS
+  useEffect(() => {
+    if (!selectedTicketId) return;
+    const ws = new WebSocket(getWsUrl(`/api/feedback/ws/chat/${selectedTicketId}`));
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'new_comment' && data.ticket_id === selectedTicketId) {
+             setTicketDetail(prev => prev ? ({ ...prev, logs: [...prev.logs, data.log] }) : null);
+        } else if (data.type === 'status_change' && data.ticket_id === selectedTicketId) {
+             setTicketDetail(prev => prev ? ({ ...prev, item: { ...prev.item, status: data.status }, logs: [...prev.logs, data.log] }) : null);
+             setTickets(prev => prev.map(t => t.id === selectedTicketId ? { ...t, status: data.status } : t));
+        } else if (data.type === 'assign' && data.ticket_id === selectedTicketId) {
+             setTicketDetail(prev => prev ? ({ ...prev, item: { ...prev.item, resolver: data.resolver }, logs: [...prev.logs, data.log] }) : null);
+        }
+      } catch (e) { console.error(e); }
+    };
+    return () => ws.close();
+  }, [selectedTicketId]);
+
   const [detailLoading, setDetailLoading] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
@@ -135,6 +208,17 @@ const TicketCenter = () => {
       fetchTickets();
     }
   }, [user]);
+
+  // Auto-select ticket from URL param
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    if (idParam && !selectedTicketId) {
+      const id = parseInt(idParam);
+      if (!isNaN(id)) {
+        fetchTicketDetail(id);
+      }
+    }
+  }, [searchParams, selectedTicketId]);
 
   const fetchUserInfo = async () => {
     if (!user) return;
@@ -232,12 +316,46 @@ const TicketCenter = () => {
       });
       if (res.data.ok) {
         setReplyContent('');
-        fetchTicketDetail(selectedTicketId); // Refresh logs
+        // WS will update logs
       }
     } catch (err: any) {
       alert(err.response?.data?.detail || "回复失败");
     } finally {
       setSendingReply(false);
+    }
+  };
+
+  const handleUpdateStatus = async (status: string) => {
+    if (!selectedTicketId || !user) return;
+    try {
+      const res = await api.post('/api/feedback/status', {
+        ticket_id: selectedTicketId,
+        status: status,
+        user: user.username
+      });
+      if (res.data.ok) {
+        // WS will update detail
+        fetchTickets();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "状态更新失败");
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!selectedTicketId || !user) return;
+    try {
+      const res = await api.post('/api/feedback/assign', {
+        ticket_id: selectedTicketId,
+        resolver: user.username,
+        user: user.username
+      });
+      if (res.data.ok) {
+        // WS will update detail
+        fetchTickets();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "分配失败");
     }
   };
 
@@ -300,6 +418,20 @@ const TicketCenter = () => {
               遇到问题？提交工单，我们将尽快为您解决。
             </p>
           </div>
+          {user?.role === 'admin' && (
+            <button
+              onClick={toggleAdminStatus}
+              className={clsx(
+                "px-4 py-2 rounded-xl font-medium shadow-lg transition-all flex items-center gap-2 w-fit mr-2",
+                isAdminActive 
+                ? "bg-green-500 hover:bg-green-600 text-white shadow-green-500/20" 
+                : "bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+              )}
+            >
+              {isAdminActive ? <CheckCircle size={20} /> : <Clock size={20} />}
+              {isAdminActive ? "客服在线" : "客服离线"}
+            </button>
+          )}
           <button
             onClick={() => setIsCreateOpen(true)}
             className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-medium shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2 w-fit"
@@ -428,12 +560,70 @@ const TicketCenter = () => {
                     </div>
                   </div>
 
+                  {!isSupportOnline && (
+                    <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 px-4 py-3 rounded-xl text-sm flex items-center justify-center gap-2 border border-amber-100 dark:border-amber-800/30">
+                        <Clock size={16} />
+                        <span>暂无管理在线，请耐心等待，如有急事联系腐竹</span>
+                    </div>
+                  )}
+
                   <div className="mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
                      <h3 className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">问题描述</h3>
                      <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
                        {ticketDetail.item.description}
                      </p>
                   </div>
+
+                  {user?.role === 'admin' && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-3 items-center">
+                      <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">管理操作:</div>
+                      
+                      {/* Assign to me */}
+                      {ticketDetail.item.resolver !== user.username && (
+                        <button
+                          onClick={handleAssign}
+                          className="px-3 py-1.5 bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-900/20 dark:text-brand-400 dark:hover:bg-brand-900/40 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                        >
+                          <ShieldCheck size={14} />
+                          受理此工单
+                        </button>
+                      )}
+
+                      <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-700 mx-1" />
+
+                      {/* Status Actions */}
+                      {['open', 'in_progress', 'resolved', 'rejected'].map(status => {
+                        if (status === ticketDetail.item.status) return null;
+                        
+                        const labels: Record<string, string> = {
+                          open: '重置为待受理',
+                          in_progress: '标记为处理中',
+                          resolved: '标记为已解决',
+                          rejected: '驳回工单'
+                        };
+                        
+                        const colors: Record<string, string> = {
+                          open: 'text-slate-600 bg-slate-100 hover:bg-slate-200',
+                          in_progress: 'text-blue-600 bg-blue-100 hover:bg-blue-200',
+                          resolved: 'text-green-600 bg-green-100 hover:bg-green-200',
+                          rejected: 'text-red-600 bg-red-100 hover:bg-red-200'
+                        };
+
+                        return (
+                          <button
+                            key={status}
+                            onClick={() => handleUpdateStatus(status)}
+                            className={clsx(
+                              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                              colors[status]
+                            )}
+                          >
+                            {labels[status]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Conversation Logs */}

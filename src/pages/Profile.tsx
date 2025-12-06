@@ -5,12 +5,17 @@ import { useTitle } from '../hooks/useTitle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Clock, MessageSquare, 
-  Trophy, AlertCircle, Loader2, Send, Shield, 
+  AlertCircle, Loader2, Send, Shield, 
   Hash, Activity, CalendarDays,
-  Reply, Trash2, X, Heart, Edit2, Plus, AlertTriangle, ThumbsUp, Image as ImageIcon, Upload, MessageCircle
+  Reply, Trash2, X, Heart, Edit2, Plus, AlertTriangle, ThumbsUp, Image as ImageIcon, Upload, MessageCircle,
+  UserPlus, UserMinus, Bookmark, Users, ChevronRight, Ban
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
+import PostCard from '../components/PostCard';
+import { getPosts, createPost } from '../services/activity';
+import { followUser, unfollowUser, getFollowStats } from '../services/follow';
+import { Post, FollowStats } from '../types/activity';
 
 interface UserProfile {
   username: string;
@@ -18,6 +23,7 @@ interface UserProfile {
   bio: string | null;
   tags: string[];
   likes: number;
+  total_likes: number;
   is_liked: boolean;
   likers: string[];
   custom_title?: string;
@@ -32,6 +38,7 @@ interface Album {
   likes: number;
   created_at: string;
   is_liked: boolean;
+  is_collected?: boolean;
   comment_count: number;
 }
 
@@ -73,6 +80,8 @@ interface Message {
   timestamp: number;
   parent_id: number | null;
   replies?: Message[];
+  likes: number;
+  is_liked: boolean;
 }
 
 const ADMIN_KEY_STORAGE = 'admin_key';
@@ -90,7 +99,8 @@ const MessageCard = ({
   replyContent, 
   setReplyContent, 
   handleReply, 
-  handleDelete, 
+  handleDelete,
+  handleLikeMessage,
   isReplying,
   formatTime 
 }: any) => {
@@ -142,6 +152,23 @@ const MessageCard = ({
                 <span className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">
                   {formatTime(msg.timestamp)}
                 </span>
+                
+                {user && (
+                  <button 
+                    onClick={() => handleLikeMessage(msg.id)}
+                    className={clsx(
+                      "flex items-center gap-1 transition-colors p-1 rounded-md",
+                      msg.is_liked 
+                        ? "text-red-500 bg-red-50 dark:bg-red-900/20" 
+                        : "text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    )}
+                    title={msg.is_liked ? "取消点赞" : "点赞"}
+                  >
+                    <Heart size={14} className={clsx(msg.is_liked && "fill-current")} />
+                    {msg.likes > 0 && <span className="text-xs font-medium">{msg.likes}</span>}
+                  </button>
+                )}
+
                 {user && !isReplyingToThis && (
                   <button 
                     onClick={() => setReplyingTo(msg.id)}
@@ -229,6 +256,7 @@ const MessageCard = ({
               setReplyContent={setReplyContent}
               handleReply={handleReply}
               handleDelete={handleDelete}
+              handleLikeMessage={handleLikeMessage}
               isReplying={isReplying}
               formatTime={formatTime}
             />
@@ -236,6 +264,103 @@ const MessageCard = ({
         </div>
       )}
     </motion.div>
+  );
+};
+
+const UserListModal = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  users, 
+  loading 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  title: string; 
+  users: { username: string; nickname?: string; avatar_url?: string }[]; 
+  loading: boolean; 
+}) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 0 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-800 m-4"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
+                <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                  <X size={20} className="text-slate-500" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 size={32} className="animate-spin text-emerald-500" />
+                  </div>
+                ) : users.length > 0 ? (
+                  <div className="space-y-3">
+                    {users.map((u) => (
+                      <Link 
+                        key={u.username} 
+                        to={`/player/${u.username}`}
+                        onClick={onClose}
+                        className="flex items-center gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all group border border-transparent hover:border-slate-100 dark:hover:border-slate-800"
+                      >
+                        <div className="relative">
+                          <img 
+                            src={`https://cravatar.eu/helmavatar/${u.username}/48.png`} 
+                            alt={u.username}
+                            className="w-12 h-12 rounded-xl shadow-sm group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                             <div className="font-bold text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors truncate text-base">
+                               {u.nickname || u.username}
+                             </div>
+                             {u.nickname && u.nickname !== u.username && (
+                               <span className="text-xs px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded font-mono">
+                                 {u.username}
+                               </span>
+                             )}
+                          </div>
+                          <div className="text-xs text-slate-500 truncate mt-0.5">
+                            访问主页
+                          </div>
+                        </div>
+                        <div className="text-slate-300 group-hover:text-emerald-500 transition-colors">
+                          <ChevronRight size={18} />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                    <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-4">
+                       <Users size={24} className="text-slate-300 dark:text-slate-600" />
+                    </div>
+                    <p>暂时没有用户</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };
 
@@ -256,6 +381,11 @@ const Profile = () => {
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [isReplying, setIsReplying] = useState(false);
+
+  // User List Modal State
+  const [showUserList, setShowUserList] = useState<'followers' | 'following' | null>(null);
+  const [userList, setUserList] = useState<{ username: string; nickname?: string }[]>([]);
+  const [userListLoading, setUserListLoading] = useState(false);
   
   // Admin State
   const [isAdmin, setIsAdmin] = useState(false);
@@ -275,12 +405,23 @@ const Profile = () => {
   // Album State
   const [albums, setAlbums] = useState<Album[]>([]);
   const [isAlbumLoading, setIsAlbumLoading] = useState(true);
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  
+  // Activity & Follow State
+  const [activeTab, setActiveTab] = useState<'overview' | 'posts' | 'collections' | 'albums'>('overview');
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [userCollections, setUserCollections] = useState<Post[]>([]);
+  const [followStats, setFollowStats] = useState<FollowStats>({ followers_count: 0, following_count: 0, is_following: false });
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [postsLoading, setPostsLoading] = useState(false);
+  // const [collectionFilter, setCollectionFilter] = useState<'posts' | 'albums'>('posts'); // unused but kept for future logic
+  // const [collectionFilter, setCollectionFilter] = useState<'posts' | 'albums'>('posts');
+  const [collectedAlbums, setCollectedAlbums] = useState<Album[]>([]);
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
     file: null as File | null
   });
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [albumComments, setAlbumComments] = useState<AlbumComment[]>([]);
@@ -288,8 +429,15 @@ const Profile = () => {
   const [isCommentLoading, setIsCommentLoading] = useState(false);
   const [isSendingComment, setIsSendingComment] = useState(false);
   
-  // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'album'>('profile');
+  // Cache state for tabs
+  const [tabDataCache, setTabDataCache] = useState<{
+    posts: { data: Post[], loaded: boolean },
+    collections: { data: Post[], loaded: boolean }
+  }>({
+    posts: { data: [], loaded: false },
+    collections: { data: [], loaded: false }
+  });
+
 
   useEffect(() => {
     const storedKey = localStorage.getItem(ADMIN_KEY_STORAGE);
@@ -302,8 +450,104 @@ const Profile = () => {
       fetchMessages(username);
       fetchProfile(username);
       fetchAlbums(username);
+      fetchFollowStatsData(username);
     }
-  }, [username, token]);
+  }, [username, token]); // Removed activeTab dependency
+
+  useEffect(() => {
+    if (username) {
+      if (activeTab === 'posts' && !tabDataCache.posts.loaded) fetchUserPosts(username);
+      if (activeTab === 'collections' && !tabDataCache.collections.loaded) fetchUserCollections();
+    }
+  }, [username, token, activeTab]);
+
+  const fetchFollowStatsData = async (name: string) => {
+    try {
+      const stats = await getFollowStats(name);
+      setFollowStats(stats);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchUserPosts = async (name: string) => {
+    setPostsLoading(true);
+    try {
+      const res = await getPosts({ author: name });
+      setUserPosts(res.data);
+      setTabDataCache(prev => ({ ...prev, posts: { data: res.data, loaded: true } }));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
+  const fetchUserCollections = async () => { // Removed unused 'name' param
+    setPostsLoading(true);
+    try {
+      // Fetch collected posts
+      const postsRes = await getPosts({ is_collected: true });
+      setUserCollections(postsRes.data);
+      
+      // Fetch collected albums (assuming new endpoint or filter)
+      // Since we don't have backend support yet, let's simulate empty or try an endpoint
+      // We need to implement backend support for album collection list.
+      // For now, let's just use a placeholder or existing list if possible.
+      // Assuming we add /api/album/collected endpoint later.
+      // For this turn, I'll focus on UI.
+      // Actually, let's try to fetch collected albums if endpoint existed.
+      try {
+         const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+         const albumsRes = await api.get<Album[]>('/api/album/collected', config);
+         setCollectedAlbums(albumsRes.data);
+      } catch (e) {
+         console.warn("Collected albums endpoint not ready", e);
+         setCollectedAlbums([]);
+      }
+
+      setTabDataCache(prev => ({ ...prev, collections: { data: postsRes.data, loaded: true } }));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
+  const fetchUserList = async (type: 'followers' | 'following') => {
+    if (!username) return;
+    setUserListLoading(true);
+    setShowUserList(type);
+    setUserList([]); // Reset list before fetching
+    try {
+      const res = await api.get<{ username: string; nickname?: string }[]>(`/api/social/${type}/${username}`);
+      setUserList(res.data);
+    } catch (error) {
+      console.error(error);
+      // Fallback/Mock data if API fails or not implemented yet
+      // setUserList([]); 
+    } finally {
+      setUserListLoading(false);
+    }
+  };
+
+  const handleFollow = async () => {
+    if (!username || isFollowLoading) return;
+    setIsFollowLoading(true);
+    try {
+      if (followStats.is_following) {
+        await unfollowUser(username);
+        setFollowStats(prev => ({ ...prev, is_following: false, followers_count: prev.followers_count - 1 }));
+      } else {
+        await followUser(username);
+        setFollowStats(prev => ({ ...prev, is_following: true, followers_count: prev.followers_count + 1 }));
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
 
   const fetchAlbums = async (name: string) => {
     setIsAlbumLoading(true);
@@ -361,6 +605,16 @@ const Profile = () => {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
+      // 3. Sync to Activity (Dynamic)
+      try {
+        await createPost({
+            title: uploadForm.title,
+            content: (uploadForm.description || '') + `\n\n![${uploadForm.title}](${imageUrl})`
+        });
+      } catch (e) {
+          console.error("Failed to sync to activity", e);
+      }
 
       closeUploadModal();
       if (username) fetchAlbums(username);
@@ -465,6 +719,41 @@ const Profile = () => {
       };
       
       setAlbums(prev => prev.map(updateAlbum));
+      if (selectedAlbum && selectedAlbum.id === album.id) {
+        setSelectedAlbum(prev => prev ? updateAlbum(prev) : null);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.detail || '操作失败');
+    }
+  };
+
+  const handleAlbumCollect = async (album: Album) => {
+    if (!user) return;
+    try {
+      const res = await api.post(`/api/album/${album.id}/collect`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update local state
+      const updateAlbum = (a: Album) => {
+        if (a.id === album.id) {
+          return { ...a, is_collected: res.data.is_collected };
+        }
+        return a;
+      };
+      
+      setAlbums(prev => prev.map(updateAlbum));
+      // Update collected albums list
+      if (res.data.is_collected) {
+          setCollectedAlbums(prev => {
+              if (prev.find(a => a.id === album.id)) return prev;
+              // Since we don't have full album data here (maybe), we use current album
+              return [{ ...album, is_collected: true }, ...prev];
+          });
+      } else {
+          setCollectedAlbums(prev => prev.filter(a => a.id !== album.id));
+      }
+
       if (selectedAlbum && selectedAlbum.id === album.id) {
         setSelectedAlbum(prev => prev ? updateAlbum(prev) : null);
       }
@@ -647,6 +936,30 @@ const Profile = () => {
     }
   };
 
+  const handleLikeMessage = async (msgId: number) => {
+    if (!user) return;
+    try {
+      const res = await api.post(`/api/message/${msgId}/like`, {}, {
+         headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update messages state
+      const updateMsg = (msg: Message): Message => {
+        if (msg.id === msgId) {
+          return { ...msg, likes: res.data.likes, is_liked: res.data.liked };
+        }
+        if (msg.replies) {
+          return { ...msg, replies: msg.replies.map(updateMsg) };
+        }
+        return msg;
+      };
+      
+      setMessages(prev => prev.map(updateMsg));
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!postContent.trim() || !user || !username) return;
@@ -717,6 +1030,68 @@ const Profile = () => {
     }).replace(/\//g, '-');
   };
 
+  const formatHistoryDate = (dateStr: string | number | null | undefined) => {
+    if (!dateStr) return '未知日期';
+    
+    let date: Date;
+    
+    // If it's a number
+    if (typeof dateStr === 'number') {
+       // If less than 10 billion, assume seconds (valid until year 2286)
+       if (dateStr < 10000000000) {
+          date = new Date(dateStr * 1000);
+       } else {
+          date = new Date(dateStr);
+       }
+    } else {
+       // If it's a string
+       let processedStr = String(dateStr);
+       
+       // Fix for "2025-04-07T17:35:23.850000 +0800" format (remove space before timezone)
+       if (processedStr.includes(' +')) {
+          processedStr = processedStr.replace(' +', '+');
+       } else if (processedStr.includes(' -')) {
+          processedStr = processedStr.replace(' -', '-');
+       }
+       
+       date = new Date(processedStr);
+       
+       // If basic parsing failed, try parsing as timestamp string
+       if (isNaN(date.getTime())) {
+          // Only try parsing as timestamp if it looks like a number
+          if (/^\d+$/.test(dateStr)) {
+             const timestamp = parseInt(dateStr);
+             if (!isNaN(timestamp)) {
+                if (timestamp < 10000000000) {
+                   date = new Date(timestamp * 1000);
+                } else {
+                   date = new Date(timestamp);
+                }
+             }
+          }
+       }
+    }
+
+    if (isNaN(date.getTime())) {
+       // If still invalid, try to extract just the date part if it looks like YYYY-MM-DD
+       if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+          const simpleDate = new Date(dateStr.substring(0, 10));
+          if (!isNaN(simpleDate.getTime())) {
+             return simpleDate.toLocaleDateString();
+          }
+       }
+       return String(dateStr);
+    }
+    
+    return date.toLocaleString('zh-CN', {
+       year: 'numeric',
+       month: '2-digit',
+       day: '2-digit',
+       hour: '2-digit',
+       minute: '2-digit'
+    }).replace(/\//g, '-');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -738,6 +1113,8 @@ const Profile = () => {
     );
   }
 
+  const isBanned = details.ban_history?.some((ban: any) => ban.active) || false;
+
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 pt-24">
       <div className="max-w-5xl mx-auto space-y-8">
@@ -746,18 +1123,41 @@ const Profile = () => {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden bg-white/80 dark:bg-slate-900/50 backdrop-blur-md rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl"
+          className={clsx(
+            "relative overflow-hidden bg-white/80 dark:bg-slate-900/50 backdrop-blur-md rounded-3xl p-8 border shadow-xl transition-all duration-300",
+            isBanned 
+              ? "border-red-500/50 shadow-red-500/20" 
+              : "border-slate-200 dark:border-slate-800"
+          )}
         >
-          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-blue-500/10 to-purple-500/10 dark:from-blue-500/20 dark:to-purple-500/20" />
+          {isBanned && (
+            <div className="absolute -top-12 -right-12 z-10 pointer-events-none opacity-20 dark:opacity-10 rotate-12">
+               <Ban size={300} className="text-red-500" />
+            </div>
+          )}
+          <div className={clsx(
+            "absolute top-0 left-0 w-full h-32",
+            isBanned 
+              ? "bg-gradient-to-r from-red-500/20 to-orange-500/20 dark:from-red-900/40 dark:to-orange-900/40"
+              : "bg-gradient-to-r from-blue-500/10 to-purple-500/10 dark:from-blue-500/20 dark:to-purple-500/20"
+          )} />
           
           <div className="relative flex flex-col md:flex-row gap-8 mt-4">
             <div className="relative group self-center md:self-end shrink-0">
-              <div className="w-32 h-32 rounded-2xl overflow-hidden ring-4 ring-white dark:ring-slate-900 shadow-2xl">
+              <div className={clsx(
+                "w-32 h-32 rounded-2xl overflow-hidden ring-4 shadow-2xl relative",
+                isBanned ? "ring-red-500 grayscale" : "ring-white dark:ring-slate-900"
+              )}>
                 <img
                   src={`https://cravatar.eu/helmavatar/${details.username}/256.png`}
                   alt={details.username}
                   className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                 />
+                {isBanned && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                     <Ban size={48} className="text-red-500 drop-shadow-lg" />
+                  </div>
+                )}
               </div>
               <div className={clsx(
                 "absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center shadow-lg",
@@ -767,28 +1167,62 @@ const Profile = () => {
               </div>
             </div>
 
-            <div className="flex-1 text-center md:text-left mb-2 self-center md:self-end">
-              <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
+            <div className="flex-1 text-center md:text-left mb-2 self-center md:self-end flex flex-col md:flex-row md:items-end justify-between w-full">
+              <div className="flex-1">
+                <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
                 <h1 className="text-4xl font-bold text-slate-900 dark:text-white">{details.username}</h1>
-                {/* Like Button */}
-                {profile && (
-                  <button
-                    onClick={handleLike}
-                    disabled={!user || user.username === details.username}
-                    className={clsx(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all border",
-                      profile.is_liked 
-                        ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800" 
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
-                      (!user || user.username === details.username) && "opacity-50 cursor-not-allowed"
-                    )}
-                    title={user?.username === details.username ? "不能给自己点赞" : (profile.is_liked ? "取消点赞" : "点赞")}
-                  >
-                    <Heart size={18} className={clsx(profile.is_liked && "fill-current")} />
-                    <span className="font-bold">{profile.likes}</span>
-                  </button>
-                )}
+                
+                <div className="flex items-center gap-3">
+                  {/* Like Button */}
+                  {profile && (
+                    <button
+                      onClick={handleLike}
+                      disabled={!user || user.username === details.username}
+                      className={clsx(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all border",
+                        profile.is_liked 
+                          ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800" 
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
+                        (!user || user.username === details.username) && "opacity-50 cursor-not-allowed"
+                      )}
+                      title={user?.username === details.username ? "不能给自己点赞" : (profile.is_liked ? "取消点赞" : "点赞")}
+                    >
+                      <Heart size={18} className={clsx(profile.is_liked && "fill-current")} />
+                      <span className="font-bold">{profile.likes}</span>
+                    </button>
+                  )}
+
+                  {/* Follow Button */}
+                  {user && user.username !== details.username && (
+                    <button
+                      onClick={handleFollow}
+                      disabled={isFollowLoading}
+                      className={clsx(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all border",
+                        followStats.is_following
+                          ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                          : "bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
+                      )}
+                    >
+                      {isFollowLoading ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : followStats.is_following ? (
+                        <>
+                          <UserMinus size={16} />
+                          <span className="font-medium">已关注</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus size={16} />
+                          <span className="font-medium">关注</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
+              
+                  {/* Follow Stats */}
               
               {/* Signature */}
               <div className="mb-4 text-slate-600 dark:text-slate-300 italic min-h-[1.5em]">
@@ -834,11 +1268,53 @@ const Profile = () => {
                   </button>
                 )}
               </div>
+              {isBanned && (
+                 <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center gap-3 text-red-600 dark:text-red-400 animate-pulse">
+                    <Ban size={20} className="shrink-0" />
+                    <span className="font-medium text-sm">此玩家已被服务器封禁</span>
+                 </div>
+              )}
+              </div>
+
+              {/* Right Side Stats */}
+              <div className="flex flex-col items-center md:items-end gap-4 mt-4 md:mt-0">
+                  {/* Follow Stats */}
+                  <div className="flex items-center gap-4 mb-2">
+                    <div 
+                      onClick={() => fetchUserList('following')}
+                      className="flex flex-col items-center cursor-pointer group transition-all hover:-translate-y-0.5"
+                    >
+                      <span className="text-2xl font-bold text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">
+                        {followStats.following_count}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 group-hover:text-indigo-400 transition-colors">关注</span>
+                    </div>
+                    <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+                    <div 
+                      onClick={() => fetchUserList('followers')}
+                      className="flex flex-col items-center cursor-pointer group transition-all hover:-translate-y-0.5"
+                    >
+                      <span className="text-2xl font-bold text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">
+                        {followStats.followers_count}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 group-hover:text-indigo-400 transition-colors">粉丝</span>
+                    </div>
+                  </div>
+
+                  
+                  <div className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-2 bg-slate-50 dark:bg-slate-800/30 px-3 py-1 rounded-full">
+                    <span>最后登录</span>
+                    <span className="text-slate-900 dark:text-white font-medium font-mono">
+                       {details.last_login ? new Date(details.last_login).toLocaleDateString() : '未知'}
+                    </span>
+                  </div>
+              </div>
             </div>
 
 
           </div>
 
+          {/* Removed old follow stats and last login absolute positioning */}
           <div className="absolute top-6 right-6 flex flex-wrap justify-end gap-2 max-w-[40%]">
              {profile && profile.tags && profile.tags.length > 0 && profile.tags.map((tag, idx) => (
                 <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 whitespace-nowrap shadow-sm">
@@ -846,50 +1322,65 @@ const Profile = () => {
                 </span>
              ))}
           </div>
-          
-          <div className="absolute bottom-4 right-8 flex flex-col items-end gap-1">
-             <div className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
-               最后登录
-             </div>
-             <div className="text-slate-900 dark:text-white font-medium font-mono text-lg">
-               {details.last_login ? new Date(details.last_login).toLocaleString() : '未知'}
-             </div>
-          </div>
         </motion.div>
 
         {/* Tab Navigation */}
-        <div className="flex justify-center gap-4">
+        <div className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-md p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-center gap-2 sm:gap-4 flex-wrap">
           <button
-            onClick={() => setActiveTab('profile')}
+            onClick={() => setActiveTab('overview')}
             className={clsx(
-              "px-6 py-2 rounded-full font-medium transition-all duration-300 flex items-center gap-2",
-              activeTab === 'profile'
-                ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg scale-105"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              "px-6 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2.5 text-sm sm:text-base relative",
+              activeTab === 'overview'
+                ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
             )}
           >
             <User size={18} />
             个人主页
           </button>
           <button
-            onClick={() => setActiveTab('album')}
+            onClick={() => setActiveTab('posts')}
             className={clsx(
-              "px-6 py-2 rounded-full font-medium transition-all duration-300 flex items-center gap-2",
-              activeTab === 'album'
-                ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg scale-105"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              "px-6 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2.5 text-sm sm:text-base relative",
+              activeTab === 'posts'
+                ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+            )}
+          >
+            <Activity size={18} />
+            动态
+          </button>
+          <button
+            onClick={() => setActiveTab('collections')}
+            className={clsx(
+              "px-6 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2.5 text-sm sm:text-base relative",
+              activeTab === 'collections'
+                ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+            )}
+          >
+            <Bookmark size={18} />
+            收藏
+          </button>
+          <button
+            onClick={() => setActiveTab('albums')}
+            className={clsx(
+              "px-6 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2.5 text-sm sm:text-base relative",
+              activeTab === 'albums'
+                ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
             )}
           >
             <ImageIcon size={18} />
-            玩家相册
+            相册
           </button>
         </div>
 
         {/* Content Area */}
         <AnimatePresence mode="wait">
-          {activeTab === 'profile' ? (
+          {activeTab === 'overview' ? (
              <motion.div
-               key="profile"
+               key="overview"
                initial={{ opacity: 0, x: -20 }}
                animate={{ opacity: 1, x: 0 }}
                exit={{ opacity: 0, x: 20 }}
@@ -898,20 +1389,6 @@ const Profile = () => {
              >
                {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-blue-500/30 transition-colors group">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-xl group-hover:scale-110 transition-transform">
-                      <Clock size={24} />
-                    </div>
-                    <div>
-                      <div className="text-slate-500 dark:text-slate-400 text-sm">总游戏时长</div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{details.total_playtime_hours} <span className="text-sm font-normal text-slate-500">小时</span></div>
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-blue-500 h-full rounded-full" style={{ width: '100%' }} />
-                  </div>
-                </div>
 
                 <div className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-purple-500/30 transition-colors group">
                   <div className="flex items-center gap-4 mb-4">
@@ -927,6 +1404,21 @@ const Profile = () => {
                   </div>
                   <div className="text-xs text-slate-500">
                       已陪伴服务器 {Math.floor((Date.now() - new Date(details.first_seen).getTime()) / (1000 * 60 * 60 * 24))} 天
+                  </div>
+                </div>
+
+                <div className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-blue-500/30 transition-colors group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-xl group-hover:scale-110 transition-transform">
+                      <Clock size={24} />
+                    </div>
+                    <div>
+                      <div className="text-slate-500 dark:text-slate-400 text-sm">总游戏时长</div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{details.total_playtime_hours} <span className="text-sm font-normal text-slate-500">小时</span></div>
+                    </div>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-blue-500 h-full rounded-full" style={{ width: '100%' }} />
                   </div>
                 </div>
 
@@ -948,15 +1440,15 @@ const Profile = () => {
                 <div className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-amber-500/30 transition-colors group">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-500 rounded-xl group-hover:scale-110 transition-transform">
-                      <Trophy size={24} />
+                      <Heart size={24} />
                     </div>
                     <div>
-                      <div className="text-slate-500 dark:text-slate-400 text-sm">登录次数</div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{details.login_count}</div>
+                      <div className="text-slate-500 dark:text-slate-400 text-sm">获得总赞数</div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{profile?.total_likes || 0}</div>
                     </div>
                   </div>
                    <div className="text-xs text-slate-500">
-                      平均每天登录 {(details.login_count / Math.max(1, Math.floor((Date.now() - new Date(details.first_seen).getTime()) / (1000 * 60 * 60 * 24)))).toFixed(2)} 次
+                      包括动态、相册、评论及主页获赞
                   </div>
                 </div>
               </div>
@@ -1029,6 +1521,12 @@ const Profile = () => {
                                 </div>
                             </div>
                             <div>
+                                <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">登录次数</div>
+                                <div className="text-slate-700 dark:text-slate-300 font-mono text-sm">
+                                    {details.login_count} 次
+                                </div>
+                            </div>
+                            <div>
                                  <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">最近游玩</div>
                                  <div className="text-slate-700 dark:text-slate-300 font-mono text-sm">
                                      {details.last_play_date || '未知'}
@@ -1050,7 +1548,7 @@ const Profile = () => {
                                         <div className="flex items-center justify-between mb-1">
                                             <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded font-bold uppercase">封禁</span>
                                             <span className="text-xs text-red-600 dark:text-red-400 font-medium">
-                                                {new Date(ban.time || ban.created).toLocaleDateString()}
+                                                {formatHistoryDate(ban.time || ban.created)}
                                             </span>
                                         </div>
                                         <div className="text-sm text-slate-700 dark:text-slate-300 font-medium mb-1 break-words">
@@ -1067,7 +1565,7 @@ const Profile = () => {
                                         <div className="flex items-center justify-between mb-1">
                                             <span className="px-1.5 py-0.5 bg-orange-500 text-white text-[10px] rounded font-bold uppercase">警告</span>
                                             <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
-                                                {new Date(warn.time || warn.created_at).toLocaleDateString()}
+                                                {formatHistoryDate(warn.time || warn.created_at)}
                                             </span>
                                         </div>
                                         <div className="text-sm text-slate-700 dark:text-slate-300 font-medium mb-1 break-words">
@@ -1158,6 +1656,7 @@ const Profile = () => {
                                         setReplyContent={setReplyContent}
                                         handleReply={handleReply}
                                         handleDelete={handleDelete}
+                                        handleLikeMessage={handleLikeMessage}
                                         isReplying={isReplying}
                                         formatTime={formatTime}
                                     />
@@ -1168,9 +1667,181 @@ const Profile = () => {
                  </div>
               </div>
             </motion.div>
+          ) : activeTab === 'posts' ? (
+            <motion.div
+              key="posts"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-1 gap-6">
+                {postsLoading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 size={32} className="animate-spin text-emerald-500" />
+                  </div>
+                ) : userPosts.length > 0 ? (
+                  userPosts.map(post => (
+                    <PostCard key={post.id} post={post} />
+                  ))
+                ) : (
+                  <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <p className="text-slate-500">暂时没有动态</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ) : activeTab === 'collections' ? (
+            <motion.div
+              key="collections"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {postsLoading ? (
+                   <div className="flex justify-center py-12 col-span-full">
+                    <Loader2 size={32} className="animate-spin text-emerald-500" />
+                  </div>
+                ) : (userCollections.length === 0 && collectedAlbums.length === 0) ? (
+                  <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 col-span-full">
+                    <p className="text-slate-500">暂时没有收藏的内容</p>
+                  </div>
+                ) : (
+                  <>
+                  {/* Merge and Sort Collections */}
+                  {[
+                    ...userCollections.map(post => ({ type: 'post' as const, data: post, date: post.created_at })),
+                    ...collectedAlbums.map(album => ({ type: 'album' as const, data: album, date: album.created_at }))
+                  ]
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((item, idx) => (
+                    <div key={`${item.type}-${item.data.id}-${idx}`} className="h-full">
+                      {item.type === 'post' ? (
+                        /* Compact Post Card */
+                        <Link to={`/activity/${(item.data as Post).id}`} className="block group h-full">
+                          <div className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col relative aspect-square">
+                            {/* Type Badge */}
+                            <div className="absolute top-2 right-2 z-10">
+                                <span className="px-2 py-1 bg-black/40 backdrop-blur-sm text-white text-[10px] rounded-full flex items-center gap-1">
+                                    <Activity size={10} />
+                                    动态
+                                </span>
+                            </div>
+
+                            {/* Post Image Cover if available */}
+                            {(item.data as Post).images && (item.data as Post).images!.length > 0 ? (
+                               <div className="relative h-[60%] overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0">
+                                 <img 
+                                   src={(item.data as Post).images![0]} 
+                                   alt={(item.data as Post).title}
+                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                 />
+                                 {(item.data as Post).images!.length > 1 && (
+                                   <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                     +{(item.data as Post).images!.length - 1}
+                                   </div>
+                                 )}
+                               </div>
+                            ) : (
+                               /* Text-only Post visual pattern */
+                               <div className="h-[60%] p-4 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-pink-900/20 border-b border-slate-100 dark:border-slate-800 flex flex-col justify-center items-center text-center relative overflow-hidden flex-shrink-0">
+                                  <div className="absolute top-0 left-0 w-full h-full opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(0,0,0,0.05) 1px, transparent 0)', backgroundSize: '16px 16px' }}></div>
+                                  <MessageSquare size={24} className="text-indigo-400/50 mb-2 relative z-10" />
+                                  <h3 className="font-bold text-slate-800 dark:text-slate-200 line-clamp-2 relative z-10 px-2 text-sm">
+                                    {(item.data as Post).title}
+                                  </h3>
+                               </div>
+                            )}
+                            
+                            <div className="p-3 flex-1 flex flex-col justify-between overflow-hidden">
+                              <div>
+                                {/* Show title here only if image post (text post shows title in header) */}
+                                {((item.data as Post).images && (item.data as Post).images!.length > 0) && (
+                                  <h3 className="font-bold text-slate-900 dark:text-white mb-1 line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors text-sm">
+                                    {(item.data as Post).title}
+                                  </h3>
+                                )}
+
+                                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-2">
+                                  {(item.data as Post).content.replace(/[#*`]/g, '')}
+                                </p>
+                              </div>
+                              
+                              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 mt-auto">
+                                <div className="flex items-center gap-2 min-w-0">
+                                   <img 
+                                      src={`https://cravatar.eu/helmavatar/${(item.data as Post).author.username}/24.png`} 
+                                      className="w-5 h-5 rounded-full flex-shrink-0"
+                                      alt={(item.data as Post).author.username}
+                                   />
+                                   <span className="text-xs text-slate-500 truncate">
+                                     {(item.data as Post).author.nickname || (item.data as Post).author.username}
+                                   </span>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-slate-400 flex-shrink-0">
+                                   <span className="flex items-center gap-1">
+                                     <Heart size={12} className={clsx((item.data as Post).is_liked && "fill-red-500 text-red-500")} />
+                                     {(item.data as Post).likes_count}
+                                   </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      ) : (
+                        /* Album Card - Fixed aspect ratio */
+                        <div className="group relative rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all h-full flex flex-col aspect-square">
+                           <div className="relative h-[75%] overflow-hidden flex-shrink-0">
+                             {/* Type Badge */}
+                             <div className="absolute top-2 right-2 z-10">
+                                <span className="px-2 py-1 bg-black/40 backdrop-blur-sm text-white text-[10px] rounded-full flex items-center gap-1">
+                                    <ImageIcon size={10} />
+                                    相册
+                                </span>
+                             </div>
+
+                             <img 
+                              src={(item.data as Album).image_url} 
+                              alt={(item.data as Album).description || (item.data as Album).title} 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                            />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                               <h4 className="text-white font-bold text-sm line-clamp-1 mb-1">{(item.data as Album).title}</h4>
+                               <p className="text-slate-200 text-xs line-clamp-2">{(item.data as Album).description}</p>
+                             </div>
+                           </div>
+                           {/* Footer for Album to match Post card style */}
+                           <div className="p-3 bg-white dark:bg-slate-900 flex items-center justify-between flex-1 border-t border-slate-100 dark:border-slate-800">
+                              <div className="flex items-center gap-2 min-w-0">
+                                 <img 
+                                    src={`https://cravatar.eu/helmavatar/${(item.data as Album).username}/24.png`} 
+                                    className="w-5 h-5 rounded-full flex-shrink-0"
+                                    alt={(item.data as Album).username}
+                                 />
+                                 <span className="text-xs text-slate-500 truncate">{(item.data as Album).username}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-slate-400 flex-shrink-0">
+                                 <span className="flex items-center gap-1">
+                                   <Heart size={12} className={clsx((item.data as Album).is_liked && "fill-red-500 text-red-500")} />
+                                   {(item.data as Album).likes}
+                                 </span>
+                              </div>
+                           </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  </>
+                )}
+              </div>
+            </motion.div>
           ) : (
              <motion.div
-               key="album"
+               key="albums"
                initial={{ opacity: 0, x: 20 }}
                animate={{ opacity: 1, x: 0 }}
                exit={{ opacity: 0, x: -20 }}
@@ -1293,7 +1964,16 @@ const Profile = () => {
 
       </div>
 
-      {/* Edit Modal */}
+      {/* User List Modal */}
+      <UserListModal 
+        isOpen={showUserList !== null}
+        onClose={() => setShowUserList(null)}
+        title={showUserList === 'following' ? '关注列表' : '粉丝列表'}
+        users={userList}
+        loading={userListLoading}
+      />
+
+      {/* Edit Profile Modal */}
       <AnimatePresence>
         {showEditModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1662,6 +2342,21 @@ const Profile = () => {
                         >
                            <Heart size={16} className={clsx(selectedAlbum.is_liked && "fill-current")} />
                            {selectedAlbum.likes}
+                        </button>
+
+                        <button 
+                          onClick={() => handleAlbumCollect(selectedAlbum)}
+                          disabled={!user}
+                          className={clsx(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all border text-sm font-medium",
+                            selectedAlbum.is_collected 
+                              ? "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800" 
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20",
+                             !user && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                           <Bookmark size={16} className={clsx(selectedAlbum.is_collected && "fill-current")} />
+                           {selectedAlbum.is_collected ? '已收藏' : '收藏'}
                         </button>
                      </div>
                   </div>

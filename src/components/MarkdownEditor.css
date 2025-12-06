@@ -1,0 +1,157 @@
+/* Fix Tailwind CSS conflicts with Vditor */
+.vditor-toolbar__item svg {
+  display: inline-block !important;
+  width: 14px !important; /* Vditor default is usually small */
+  height: 14px !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+/* Fix for different icon sizes if needed */
+.vditor-tooltipped svg {
+    width: 14px !important;
+    height: 14px !important;
+}
+
+/* Reset general Vditor SVG behavior overridden by Tailwind preflight */
+.vditor svg {
+  display: inline-block !important;
+  max-width: none !important;
+}
+
+/* Fix icon sizes specifically inside the editor toolbar and popups */
+.vditor-toolbar svg,
+.vditor-hint svg,
+.vditor-panel svg {
+    width: auto !important;
+    height: auto !important;
+    max-height: 100%;
+}
+
+/* Specific fix for toolbar icons */
+.vditor-toolbar__item svg {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* Fix code block copy button */
+.vditor-copy {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 28px !important;
+    height: 28px !important;
+    padding: 6px !important;
+    border-radius: 6px !important;
+    background-color: transparent !important;
+    transition: all 0.2s ease !important;
+    opacity: 0.6;
+}
+
+.vditor-copy:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.dark .vditor-copy:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.vditor-copy svg {
+    width: 16px !important;
+    height: 16px !important;
+    display: block !important;
+    color: inherit !important;
+}
+
+/* Ensure toolbar buttons are correctly sized */
+.vditor-toolbar__item {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Fix tooltip/dropdown z-index and styling */
+.vditor-hint,
+.vditor-panel,
+.vditor-tip,
+.vditor-popover {
+    z-index: 9999 !important;
+    position: fixed !important; /* Use fixed to escape any parent overflow */
+}
+
+/* Fix dropdown menu items */
+.vditor-hint button,
+.vditor-panel button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+}
+
+.vditor-hint button:hover,
+.vditor-panel button:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Dark mode adjustments for popups */
+.dark .vditor-hint,
+.dark .vditor-panel,
+.dark .vditor-tip,
+.dark .vditor-popover {
+    background-color: #1e293b !important; /* slate-800 */
+    border-color: #334155 !important; /* slate-700 */
+    color: #f1f5f9 !important; /* slate-100 */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.dark .vditor-hint button:hover,
+.dark .vditor-panel button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Ensure content within popups is visible */
+.vditor-hint__content,
+.vditor-panel__content {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Fix for specific dropdown alignment if needed */
+.vditor-toolbar__item .vditor-panel {
+    /* top: 100% !important; */ /* Removed to let Vditor calculate position if possible, or rely on absolute */
+    margin-top: 5px;
+}
+
+/* Fix border radius for Vditor internal container */
+.vditor {
+    border: none !important; /* Let parent handle border */
+    border-radius: 0.75rem !important; /* Match rounded-xl */
+}
+
+.vditor-toolbar {
+    border-top-left-radius: 0.75rem !important;
+    border-top-right-radius: 0.75rem !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    background-color: transparent !important;
+    padding-left: 10px !important; /* Ensure padding matches rounded corners visually */
+    padding-right: 10px !important;
+}
+
+.dark .vditor-toolbar {
+    border-bottom-color: #334155 !important;
+}
+
+.vditor-content {
+    border-bottom-left-radius: 0.75rem !important;
+    border-bottom-right-radius: 0.75rem !important;
+}
+
+/* IMPORTANT: Allow Vditor popups to overflow the editor container */
+/* .vditor-reset {
+    overflow: visible !important;
+} */

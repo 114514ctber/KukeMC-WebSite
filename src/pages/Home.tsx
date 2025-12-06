@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTitle } from '../hooks/useTitle';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { Copy, Check, ArrowRight, Gamepad2, Shield, Heart, Zap, Users, Calendar, Trophy, Camera, MessageSquare, ExternalLink, X, ZoomIn, ChevronLeft, ChevronRight, Box, Pickaxe, Sword, Leaf, Sun, FlaskConical, BedDouble, Cog, Skull, Infinity, Layers, Search, Ghost } from 'lucide-react';
 import clsx from 'clsx';
@@ -176,20 +177,73 @@ const servers = [
   }
 ];
 
+// Animation Variants
 const cardVariants = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
       type: "spring",
-      stiffness: 260,
-      damping: 20
+      stiffness: 300,
+      damping: 24
+    }
+  },
+  rest: { 
+    y: 0, 
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 500,
+      damping: 30,
+      mass: 0.5
+    }
+  },
+  hover: {
+    y: -8,
+    scale: 1.02,
+    transition: {
+      type: "spring",
+      stiffness: 500,
+      damping: 30,
+      mass: 0.5
+    }
+  },
+  tap: {
+    scale: 0.98,
+    transition: {
+      type: "spring",
+      stiffness: 500,
+      damping: 30,
+      mass: 0.5
+    }
+  }
+};
+
+const overlayVariants = {
+  rest: { opacity: 0 },
+  hover: { opacity: 1, transition: { duration: 0.2 } }
+};
+
+const imageVariants = {
+  rest: { scale: 1 },
+  hover: { scale: 1.05 } // Inherits parent spring transition for perfect sync
+};
+
+const contentVariants = {
+  rest: { y: 20, opacity: 0 },
+  hover: { 
+    y: 0, 
+    opacity: 1,
+    transition: {
+      y: { type: "spring", stiffness: 500, damping: 30, mass: 0.5 }, // Sync movement
+      opacity: { duration: 0.2 } // Separate opacity duration
     }
   }
 };
 
 const Home = () => {
+  useTitle('KukeMC-我的世界服务器(Minecraft)');
 
   const [copied, setCopied] = useState(false);
   const [copiedServer, setCopiedServer] = useState<string | null>(null);
@@ -443,22 +497,27 @@ const Home = () => {
               <motion.div
                 key={server.name}
                 variants={cardVariants}
-                whileHover={{ y: -8, transition: { duration: 0.3 } }}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
                 onClick={(e) => handleCopy(e, 'mc.kuke.ink', server.name)}
-                className="group bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700/50 hover:border-brand-500/50 transition-all shadow-lg hover:shadow-brand-500/10 cursor-pointer relative transform-gpu will-change-transform"
+                className="group bg-white dark:bg-slate-800/50 backdrop-blur-md rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/50 hover:border-brand-500/30 transition-colors duration-300 shadow-lg hover:shadow-2xl hover:shadow-brand-500/20 cursor-pointer relative transform-gpu will-change-transform"
                 style={{ backfaceVisibility: 'hidden' }}
               >
-                <div className="relative h-48 overflow-hidden bg-slate-100 dark:bg-slate-900 rounded-t-xl transform-gpu -mb-px z-10">
-                  <img 
+                <div className="relative h-48 overflow-hidden bg-slate-100 dark:bg-slate-900 rounded-t-2xl transform-gpu -mb-px z-10">
+                  <motion.img 
+                    variants={imageVariants}
                     src={server.img} 
                     alt={server.name}
-                    className="block w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 will-change-transform"
+                    className="block w-full h-full object-cover will-change-transform"
                     style={{ backfaceVisibility: 'hidden' }}
                   />
                   {/* Hover Overlay */}
-                  <div className={clsx(
-                    "absolute -inset-1 z-10 bg-slate-900/80 transition-opacity duration-300 flex flex-col items-center justify-center backdrop-blur-sm",
-                    copiedServer === server.name ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  <motion.div 
+                    variants={overlayVariants}
+                    className={clsx(
+                    "absolute -inset-1 z-10 bg-slate-900/80 flex flex-col items-center justify-center backdrop-blur-sm",
+                    copiedServer === server.name ? "opacity-100" : ""
                   )}>
                     {copiedServer === server.name ? (
                       <>
@@ -467,22 +526,36 @@ const Home = () => {
                       </>
                     ) : (
                       <>
-                        <Copy size={32} className="text-brand-400 mb-2 transform scale-0 group-hover:scale-100 transition-transform duration-300 delay-100" />
-                        <span className="text-white font-bold text-lg transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-150">点击复制 IP</span>
-                        <span className="text-brand-400 text-sm mt-1 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-200">mc.kuke.ink</span>
+                        <motion.div variants={contentVariants}>
+                          <Copy size={32} className="text-brand-400 mb-2 mx-auto" />
+                        </motion.div>
+                        <motion.div variants={contentVariants}>
+                          <span className="text-white font-bold text-lg block text-center">点击复制 IP</span>
+                        </motion.div>
+                        <motion.div variants={contentVariants}>
+                          <span className="text-brand-400 text-sm mt-1 block text-center">mc.kuke.ink</span>
+                        </motion.div>
                       </>
                     )}
-                  </div>
+                  </motion.div>
                   
                   {/* Default Gradient (visible when not hovering) */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent opacity-80 group-hover:opacity-0 transition-opacity duration-300" />
+                  <motion.div 
+                    variants={{ hover: { opacity: 0 }, visible: { opacity: 0.8 } }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent" 
+                  />
                   
                   {/* Version Badge (visible when not hovering) */}
-                  <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end group-hover:opacity-0 transition-opacity duration-300">
+                  <motion.div 
+                    variants={{ hover: { opacity: 0 }, visible: { opacity: 1 } }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute bottom-4 left-4 right-4 flex justify-between items-end"
+                  >
                     <span className="px-3 py-1 bg-brand-600/90 backdrop-blur-md text-xs font-bold text-white rounded-full shadow-lg">
                       {server.version}
                     </span>
-                  </div>
+                  </motion.div>
                 </div>
                 <div className="p-6 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 transition-colors relative z-0">
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors flex items-center gap-2">
@@ -536,25 +609,32 @@ const Home = () => {
               return (
                 <motion.div 
                   key={`row1-${idx}`}
-                  whileHover={{ y: -5, scale: 1.02 }}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  variants={cardVariants}
                   onClick={() => setSelectedImage(originalIndex)}
-                  className="relative flex-shrink-0 w-[24rem] aspect-video rounded-xl overflow-hidden group cursor-pointer ring-1 ring-slate-200 dark:ring-white/10 hover:ring-brand-500/50 shadow-lg hover:shadow-brand-500/20 transition-all duration-300 mr-6"
+                  className="relative flex-shrink-0 w-[24rem] aspect-video rounded-2xl overflow-hidden group cursor-pointer ring-1 ring-slate-200 dark:ring-white/10 hover:ring-brand-500/50 shadow-lg hover:shadow-2xl hover:shadow-brand-500/20 transition-all duration-300 mr-6"
                 >
-                  <img 
+                  <motion.img 
+                    variants={imageVariants}
                     src={image.src} 
                     alt={image.title}
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-cover will-change-transform"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                    <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                  <motion.div 
+                    variants={overlayVariants}
+                    className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent flex flex-col justify-end p-4"
+                  >
+                    <motion.div variants={contentVariants}>
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="text-white font-bold text-base">{image.title}</h4>
                         <ZoomIn className="w-4 h-4 text-brand-400" />
                       </div>
                       <p className="text-slate-300 text-xs line-clamp-2">{image.description}</p>
-                    </div>
-                  </div>
+                    </motion.div>
+                  </motion.div>
                 </motion.div>
               );
             })}
@@ -575,25 +655,32 @@ const Home = () => {
               return (
                 <motion.div 
                   key={`row2-${idx}`}
-                  whileHover={{ y: -5, scale: 1.02 }}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  variants={cardVariants}
                   onClick={() => setSelectedImage(originalIndex)}
-                  className="relative flex-shrink-0 w-[24rem] aspect-video rounded-xl overflow-hidden group cursor-pointer ring-1 ring-slate-200 dark:ring-white/10 hover:ring-brand-500/50 shadow-lg hover:shadow-brand-500/20 transition-all duration-300 mr-6"
+                  className="relative flex-shrink-0 w-[24rem] aspect-video rounded-2xl overflow-hidden group cursor-pointer ring-1 ring-slate-200 dark:ring-white/10 hover:ring-brand-500/50 shadow-lg hover:shadow-2xl hover:shadow-brand-500/20 transition-all duration-300 mr-6"
                 >
-                  <img 
+                  <motion.img 
+                    variants={imageVariants}
                     src={image.src} 
                     alt={image.title}
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-cover will-change-transform"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                    <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                  <motion.div 
+                    variants={overlayVariants}
+                    className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent flex flex-col justify-end p-4"
+                  >
+                    <motion.div variants={contentVariants}>
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="text-white font-bold text-base">{image.title}</h4>
                         <ZoomIn className="w-4 h-4 text-brand-400" />
                       </div>
                       <p className="text-slate-300 text-xs line-clamp-2">{image.description}</p>
-                    </div>
-                  </div>
+                    </motion.div>
+                  </motion.div>
                 </motion.div>
               );
             })}

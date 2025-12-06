@@ -6,6 +6,9 @@ import clsx from 'clsx';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import MentionInput from '../components/MentionInput';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: number;
@@ -20,6 +23,31 @@ interface Message {
 const ADMIN_KEY_STORAGE = 'admin_key';
 
 // --- Sub Components ---
+
+const MessageContent = ({ content }: { content: string }) => {
+  const processed = content.replace(
+    /@([^ \t\n\r\f\v@,.!?;:，。！？]+)/g, 
+    (match, username) => `[${match}](/player/${username})`
+  );
+  
+  return (
+    <div className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
+       <ReactMarkdown 
+          remarkPlugins={[remarkGfm]}
+          components={{
+              a: ({node, ...props}) => (
+                <Link to={props.href || '#'} className="text-emerald-500 hover:underline" onClick={(e) => e.stopPropagation()}>
+                  {props.children}
+                </Link>
+              ),
+              p: ({node, ...props}) => <span {...props} /> // Use span to avoid block nesting issues inside div with pre-wrap if needed, or just p
+          }}
+       >
+         {processed}
+       </ReactMarkdown>
+    </div>
+  );
+};
 
 const MessageCard = ({ 
   msg, 
@@ -137,9 +165,7 @@ const MessageCard = ({
             </div>
             
             {/* Content */}
-            <p className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
-              {msg.content}
-            </p>
+            <MessageContent content={msg.content} />
           </div>
         </div>
 
@@ -153,14 +179,15 @@ const MessageCard = ({
               className="overflow-hidden mt-4 pl-14 sm:pl-16"
             >
               <form onSubmit={(e) => handleReply(e, msg.id)} className="group bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
-                <textarea
-                  value={replyContent}
-                  onChange={(e) => setReplyContent(e.target.value)}
-                  placeholder={`回复 @${msg.player}...`}
-                  className="w-full bg-transparent border-none p-3 text-sm focus:ring-0 focus:outline-none resize-none placeholder:text-slate-400"
-                  rows={3}
-                  autoFocus
-                />
+                <div className="relative">
+                  <MentionInput
+                    value={replyContent}
+                    onChange={(e) => setReplyContent(e.target.value)}
+                    placeholder={`回复 @${msg.player}...`}
+                    className="w-full bg-transparent border-none p-3 text-sm focus:ring-0 focus:outline-none resize-none placeholder:text-slate-400 min-h-[80px]"
+                    autoFocus
+                  />
+                </div>
                 <div className="flex justify-end px-2 pb-2 gap-2">
                   <button
                     type="button"
@@ -402,12 +429,14 @@ const Messages = () => {
                     }}
                   />
                 </div>
-                <textarea
-                  value={postContent}
-                  onChange={(e) => setPostContent(e.target.value)}
-                  placeholder={`以 ${user.username} 的身份留言...`}
-                  className="w-full pl-16 pr-4 py-6 bg-transparent rounded-xl text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:bg-white/50 dark:focus:bg-black/10 transition-all resize-none min-h-[100px]"
-                />
+                <div className="relative">
+                  <MentionInput
+                    value={postContent}
+                    onChange={(e) => setPostContent(e.target.value)}
+                    placeholder={`以 ${user.username} 的身份留言...`}
+                    className="w-full pl-16 pr-4 py-6 bg-transparent rounded-xl text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:bg-white/50 dark:focus:bg-black/10 transition-all resize-none min-h-[100px]"
+                  />
+                </div>
                 <div className="flex justify-end px-4 pb-4">
                   <button
                     type="submit"

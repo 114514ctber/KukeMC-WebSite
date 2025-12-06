@@ -18,12 +18,14 @@ import {
   MoreHorizontal,
   ChevronDown,
   ExternalLink,
-  Ticket
+  Ticket,
+  Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 
 import { ThemeToggle } from './ThemeToggle';
+import { NotificationList } from './NotificationList';
 import { useAuth } from '../context/AuthContext';
 
 interface NavLinkItem {
@@ -110,6 +112,7 @@ const Navbar = () => {
 
   const primaryLinks: NavLinkItem[] = [
     { name: '首页', path: '/', icon: Home },
+    { name: '动态', path: '/activity', icon: Compass },
     { name: '公告', path: '/news', icon: Megaphone, relatedPaths: ['/changelog'] },
     { name: '玩家', path: '/players', icon: Users },
     { name: '封禁', path: '/bans', icon: Ban },
@@ -159,7 +162,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden xl:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1">
             <div className="flex items-center gap-1">
               {primaryLinks.map((link) => {
                  const isActive = location.pathname === link.path || (link.relatedPaths?.includes(location.pathname) ?? false);
@@ -233,7 +236,8 @@ const Navbar = () => {
           </div>
 
           {/* Right Actions */}
-          <div className="hidden xl:flex items-center gap-3 pl-4">
+          <div className="hidden lg:flex items-center gap-3 pl-4">
+             <NotificationList />
              <ThemeToggle />
              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
             {user ? (
@@ -262,7 +266,8 @@ const Navbar = () => {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="xl:hidden flex items-center gap-3">
+          <div className="lg:hidden flex items-center gap-3">
+            <NotificationList />
             <ThemeToggle />
             <button
               onClick={() => setIsOpen(!isOpen)}
@@ -281,7 +286,7 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="xl:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden"
+            className="lg:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden"
           >
             <div className="px-4 py-6 space-y-6 max-h-[80vh] overflow-y-auto">
               {user ? (

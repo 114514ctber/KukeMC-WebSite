@@ -6,6 +6,8 @@ import PlayerList from './pages/PlayerList';
 import BanList from './pages/BanList';
 import Stats from './pages/Stats';
 import Messages from './pages/Messages';
+import Activity from './pages/Activity';
+import PostDetail from './pages/PostDetail';
 import Skin from './pages/Skin';
 import Profile from './pages/Profile';
 import TicketCenter from './pages/Tickets';
@@ -28,6 +30,8 @@ function App() {
           <Route path="players" element={<PlayerList />} />
           <Route path="bans" element={<BanList />} />
           <Route path="stats" element={<Stats />} />
+          <Route path="activity" element={<Activity />} />
+          <Route path="activity/:id" element={<PostDetail />} />
           <Route path="monitor" element={<Monitor />} />
           <Route path="messages" element={<Messages />} />
           <Route path="tickets" element={<TicketCenter />} />

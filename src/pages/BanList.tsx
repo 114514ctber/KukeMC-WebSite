@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { useTitle } from '../hooks/useTitle';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Ban, ChevronLeft, ChevronRight, Terminal, Clock, Timer } from 'lucide-react';
 import clsx from 'clsx';
@@ -210,17 +211,17 @@ const BanList = () => {
                       {data?.data.map((ban) => (
                         <tr key={ban.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors duration-200">
                           <td className="px-6 py-4">
-                            <div className="flex items-center space-x-3">
+                            <Link to={`/player/${ban.name}`} className="flex items-center space-x-3 group">
                               <img
                                 src={`https://cravatar.eu/helmavatar/${ban.name}/40.png`}
                                 alt={ban.name}
-                                className="w-10 h-10 rounded-lg shadow-sm"
+                                className="w-10 h-10 rounded-lg shadow-sm group-hover:ring-2 group-hover:ring-red-500/50 transition-all"
                                 onError={(e) => {
                                     (e.target as HTMLImageElement).src = `https://cravatar.eu/helmavatar/MHF_Steve/40.png`;
                                   }}
                               />
-                              <span className="font-medium text-slate-900 dark:text-slate-200 transition-colors duration-300">{ban.name}</span>
-                            </div>
+                              <span className="font-medium text-slate-900 dark:text-slate-200 group-hover:text-red-500 transition-colors duration-300">{ban.name}</span>
+                            </Link>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 transition-colors duration-300">
