@@ -348,7 +348,6 @@ const TicketCenter = () => {
     const tempId = Date.now();
     const tempLog: TicketLog = {
         id: tempId,
-        ticket_id: selectedTicketId,
         actor: user.username,
         action: 'comment',
         message: replyContent,

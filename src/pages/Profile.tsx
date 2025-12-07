@@ -13,7 +13,7 @@ import {
 import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
 import PostCard from '../components/PostCard';
-import { getPosts, createPost } from '../services/activity';
+import { getPosts } from '../services/activity';
 import { followUser, unfollowUser, getFollowStats } from '../services/follow';
 import { Post, FollowStats } from '../types/activity';
 
@@ -41,13 +41,6 @@ interface Album {
   is_liked: boolean;
   is_collected?: boolean;
   comment_count: number;
-}
-
-interface AlbumComment {
-  id: number;
-  username: string;
-  content: string;
-  created_at: string;
 }
 
 interface PlayerDetails {
