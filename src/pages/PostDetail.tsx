@@ -57,7 +57,9 @@ const PostDetail = () => {
       setPost(postRes.data);
       
       // Organize comments (if backend returns flat list)
-      const flatComments = commentsRes.data;
+      const responseData = commentsRes.data as any;
+      const flatComments = Array.isArray(responseData) ? responseData : (responseData.data || []);
+      
       const commentMap = new Map<number, Comment>();
       const rootComments: Comment[] = [];
 
