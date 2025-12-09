@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import SEO from '../components/SEO';
 import { AnimatePresence } from 'framer-motion';
-import { Plus, Flame, Clock, Search, Loader2, Hash, X } from 'lucide-react';
+import { Plus, Flame, Clock, Search, Loader2, Hash, X, ChevronDown } from 'lucide-react';
 import { Post } from '../types/activity';
 import { getPosts, getHotTopics } from '../services/activity';
 import PostCard from '../components/PostCard';
@@ -21,6 +21,7 @@ const Activity = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [hotTopics, setHotTopics] = useState<{name: string, count: number}[]>([]);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const fetchPosts = async (reset = false) => {
     if (reset) {
@@ -79,6 +80,27 @@ const Activity = () => {
       fetchPosts();
     }
   };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && hasMore) {
+          fetchPosts();
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [loading, hasMore, activeTab, squareSort, tagParam, page]); // Add dependencies to ensure correct closure capture or re-observation
 
   const handlePostCreated = (newPost: Post) => {
     // If filtering by tag, only add if post has that tag (or just refresh)
@@ -216,13 +238,31 @@ const Activity = () => {
                   </AnimatePresence>
                   
                   {hasMore && (
-                    <div className="flex justify-center pt-4">
+                    <div 
+                      ref={loadMoreRef}
+                      className="flex justify-center pt-8 pb-4"
+                    >
                       <button
                         onClick={handleLoadMore}
                         disabled={loading}
-                        className="px-6 py-2 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                        className={clsx(
+                          "group relative px-6 py-2 rounded-full transition-all duration-300 flex items-center gap-2",
+                          loading 
+                            ? "bg-transparent text-emerald-500 cursor-wait" 
+                            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:shadow-md hover:-translate-y-0.5"
+                        )}
                       >
-                        {loading ? '加载中...' : '加载更多'}
+                        {loading ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin" />
+                            <span className="animate-pulse font-medium">加载更多动态...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown size={18} className="group-hover:translate-y-0.5 transition-transform" />
+                            <span>加载更多</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   )}

@@ -9,6 +9,7 @@ import { Post } from '../types/activity';
 import { useAuth } from '../context/AuthContext';
 import { toggleLikePost, toggleCollectPost, deletePost } from '../services/activity';
 import { toggleLikeAlbum, toggleCollectAlbum, deleteAlbum } from '../services/album';
+import { followUser, unfollowUser } from '../services/follow';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import CreatePostModal from './CreatePostModal';
@@ -32,6 +33,9 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
   const [isCopied, setIsCopied] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  const [isFollowing, setIsFollowing] = useState(post.author.is_following);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+
   const handleShare = async () => {
     try {
       const url = `${window.location.origin}/activity/${post.id}`;
@@ -47,6 +51,27 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
   const handleUpdateSuccess = (updatedPost: Post) => {
     if (onUpdate) {
         onUpdate(updatedPost);
+    }
+  };
+
+  const handleFollow = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user || isFollowLoading) return;
+    
+    setIsFollowLoading(true);
+    try {
+        if (isFollowing) {
+            await unfollowUser(post.author.username);
+            setIsFollowing(false);
+        } else {
+            await followUser(post.author.username);
+            setIsFollowing(true);
+        }
+    } catch (error) {
+        console.error(error);
+    } finally {
+        setIsFollowLoading(false);
     }
   };
 
@@ -145,6 +170,21 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50">
                      {post.author.custom_title}
                    </span>
+                )}
+                
+                {/* Follow Button */}
+                {!isAuthor && user && (
+                    <button
+                        onClick={handleFollow}
+                        className={clsx(
+                            "ml-2 text-xs px-2 py-0.5 rounded-full font-medium transition-all duration-300 border",
+                            isFollowing 
+                                ? "text-slate-400 border-slate-200 hover:text-red-500 hover:border-red-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-red-900/20"
+                                : "text-emerald-600 border-emerald-200 hover:bg-emerald-50 bg-white dark:bg-slate-800 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-900/20"
+                        )}
+                    >
+                        {isFollowLoading ? '...' : isFollowing ? '已关注' : '+ 关注'}
+                    </button>
                 )}
               </div>
               <span className="text-xs text-slate-500 dark:text-slate-400">

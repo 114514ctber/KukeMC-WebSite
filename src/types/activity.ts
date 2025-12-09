@@ -3,6 +3,7 @@ export interface Author {
   avatar?: string;
   nickname?: string;
   custom_title?: string;
+  is_following?: boolean;
 }
 
 export interface Post {

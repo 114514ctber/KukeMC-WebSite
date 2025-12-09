@@ -15,6 +15,7 @@ import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
 import PostCard from '../components/PostCard';
 import MentionInput from '../components/MentionInput';
+import ContributionGraph from '../components/ContributionGraph';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
 import { getPosts } from '../services/activity';
@@ -1557,6 +1558,9 @@ const Profile = () => {
                transition={{ duration: 0.3, ease: "easeOut" }}
                className="space-y-8"
              >
+               {/* Contribution Graph */}
+               <ContributionGraph username={details.username} />
+
                {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
