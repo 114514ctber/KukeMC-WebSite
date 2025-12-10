@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import SEO from '../components/SEO';
 import { AnimatePresence } from 'framer-motion';
+import PageTransition from '../components/PageTransition';
 import { Plus, Flame, Clock, Search, Loader2, Hash, X, ChevronDown } from 'lucide-react';
 import { Post } from '../types/activity';
 import { getPosts, getHotTopics } from '../services/activity';
@@ -129,6 +130,7 @@ const Activity = () => {
         url="/activity"
       />
 
+      <PageTransition>
       <div className="max-w-5xl mx-auto relative z-10">
         
         {/* Header Section */}
@@ -317,6 +319,7 @@ const Activity = () => {
           </div>
         </div>
       </div>
+      </PageTransition>
 
       <CreatePostModal 
         isOpen={isCreateModalOpen} 

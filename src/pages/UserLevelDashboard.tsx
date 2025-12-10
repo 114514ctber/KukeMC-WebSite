@@ -6,6 +6,7 @@ import TaskBoard from '../components/leveling/TaskBoard';
 import CheckInModal from '../components/leveling/CheckInModal';
 import Leaderboard from '../components/leveling/Leaderboard';
 import SEO from '../components/SEO';
+import PageTransition from '../components/PageTransition';
 import { Calendar, LayoutDashboard } from 'lucide-react';
 
 const UserLevelDashboard: React.FC = () => {
@@ -46,6 +47,7 @@ const UserLevelDashboard: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <SEO title="任务中心" />
+      <PageTransition>
       <div className="flex flex-col md:flex-row gap-8">
         {/* Left Column: Stats & Check-in */}
         <div className="w-full md:w-1/3 space-y-6">
@@ -82,6 +84,17 @@ const UserLevelDashboard: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Today's Check-in Count */}
+                    <div className="mb-4 p-3 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/10 dark:to-red-900/10 rounded-xl flex items-center justify-between border border-orange-100 dark:border-orange-900/30">
+                        <span className="text-xs font-bold text-orange-600 dark:text-orange-400">今日已签到</span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-black text-orange-600 dark:text-orange-400">
+                                {checkInStatus.today_checkin_count || 0}
+                            </span>
+                            <span className="text-xs text-orange-400 dark:text-orange-500">人</span>
+                        </div>
+                    </div>
+
                     <button
                         onClick={() => setIsCheckInOpen(true)}
                         className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95"
@@ -106,6 +119,7 @@ const UserLevelDashboard: React.FC = () => {
             </div>
         </div>
       </div>
+      </PageTransition>
 
       <CheckInModal 
         isOpen={isCheckInOpen} 

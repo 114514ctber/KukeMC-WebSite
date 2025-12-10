@@ -251,9 +251,20 @@ const LiveChat: React.FC = () => {
     <div className="min-h-screen pt-20 pb-10 px-4 sm:px-6 lg:px-8 text-slate-900 dark:text-white transition-colors duration-300 relative overflow-hidden">
       <SEO title="实时聊天" />
       
-      <div className="max-w-7xl mx-auto relative z-10 h-[85vh] flex flex-col">
+      <motion.div 
+        initial="initial"
+        animate="animate"
+        variants={{
+          initial: { opacity: 0 },
+          animate: { opacity: 1, transition: { staggerChildren: 0.1 } }
+        }}
+        className="max-w-7xl mx-auto relative z-10 h-[85vh] flex flex-col"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 flex-shrink-0">
+        <motion.div 
+          variants={{ initial: { y: -20, opacity: 0 }, animate: { y: 0, opacity: 1, transition: { duration: 0.4 } } }}
+          className="flex items-center justify-between mb-6 flex-shrink-0"
+        >
           <div className="flex items-center gap-3">
             <div className="p-3 bg-white dark:bg-white/5 rounded-xl shadow-sm border border-slate-200 dark:border-white/10 backdrop-blur-md">
               <MessageSquare className="w-6 h-6 text-blue-500 dark:text-blue-400" />
@@ -283,13 +294,16 @@ const LiveChat: React.FC = () => {
               <Users className="w-5 h-5" />
             </button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Main Content Area */}
         <div className="flex-1 flex gap-4 overflow-hidden pb-4">
           
           {/* Left: Chat Area */}
-          <div className="flex-1 flex flex-col bg-white/80 dark:bg-gray-900/40 backdrop-blur-xl rounded-2xl border border-slate-200 dark:border-white/10 shadow-lg overflow-hidden">
+          <motion.div 
+            variants={{ initial: { x: -20, opacity: 0 }, animate: { x: 0, opacity: 1, transition: { duration: 0.5 } } }}
+            className="flex-1 flex flex-col bg-white/80 dark:bg-gray-900/40 backdrop-blur-xl rounded-2xl border border-slate-200 dark:border-white/10 shadow-lg overflow-hidden"
+          >
             {/* Messages List */}
             <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6 custom-scrollbar">
               <AnimatePresence initial={false}>
@@ -417,10 +431,12 @@ const LiveChat: React.FC = () => {
                  <span className="text-[10px] text-slate-400 dark:text-gray-600">每5秒仅限发送一条消息 • 请文明发言</span>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Right: Online Players Sidebar (Desktop) */}
-          <div className={`
+          <motion.div 
+            variants={{ initial: { x: 20, opacity: 0 }, animate: { x: 0, opacity: 1, transition: { duration: 0.5 } } }}
+            className={`
             fixed inset-0 z-50 lg:static lg:z-auto lg:w-80 lg:block
             ${showPlayersMobile ? 'block' : 'hidden'}
           `}>
@@ -487,9 +503,9 @@ const LiveChat: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
       
       {/* Global CSS for scrollbar */}
       <style>{`

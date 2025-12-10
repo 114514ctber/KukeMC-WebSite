@@ -1,22 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../utils/api';
+import api, { generateUploadHeaders } from '../utils/api';
 import SEO from '../components/SEO';
 import { motion, AnimatePresence } from 'framer-motion';
+import PageTransition from '../components/PageTransition';
 import { useSearchParams } from 'react-router-dom';
 import { 
   Ticket as TicketIcon, Plus, 
   MessageSquare, Clock, CheckCircle, XCircle, 
   AlertCircle, Loader2, ChevronRight, Send, 
   FileText, History, Image as ImageIcon,
-  ShieldCheck, ArrowLeft
+  ShieldCheck, ArrowLeft, Lightbulb, ShieldAlert, User, HelpCircle
 } from 'lucide-react';
 import clsx from 'clsx';
-import { Ticket, TicketLog, CreateTicketDTO } from '../types/ticket';
+import { Ticket, TicketLog, CreateTicketDTO, TicketStatus } from '../types/ticket';
 import { SERVER_NAMES } from '../utils/servers';
 
-const TicketStatusBadge = ({ status }: { status: string }) => {
+const TICKET_CATEGORIES = [
+  { id: 'bug', label: 'Bug反馈', icon: AlertCircle, color: 'text-red-500' },
+  { id: 'suggestion', label: '功能建议', icon: Lightbulb, color: 'text-yellow-500' },
+  { id: 'report', label: '违规举报', icon: ShieldAlert, color: 'text-orange-500' },
+  { id: 'account', label: '账号问题', icon: User, color: 'text-blue-500' },
+  { id: 'other', label: '其他问题', icon: HelpCircle, color: 'text-slate-500' },
+];
+
+const TicketStatusBadge = ({ status }: { status: TicketStatus }) => {
   const styles = {
     open: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
     in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
@@ -56,20 +65,18 @@ const ImageUpload = ({ onUploadComplete, disabled }: { onUploadComplete: (url: s
       
       setIsUploading(true);
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('file', file);
 
       try {
-        const response = await fetch('https://img-api.kuke.ink/raw', {
-          method: 'POST',
-          body: formData,
+        const securityHeaders = await generateUploadHeaders();
+        const response = await api.post('/api/upload/image', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...securityHeaders
+          },
         });
 
-        if (!response.ok) {
-          throw new Error('上传失败');
-        }
-
-        const imageUrl = await response.text();
-        onUploadComplete(imageUrl);
+        onUploadComplete(response.data.url);
       } catch (err) {
         alert('图片上传失败，请稍后重试');
         console.error(err);
@@ -222,7 +229,8 @@ const TicketCenter = () => {
     player_uuid: '',
     description: '',
     server: '',
-    contact: ''
+    contact: '',
+    category: 'bug'
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -462,6 +470,7 @@ const TicketCenter = () => {
   return (
     <div className="min-h-screen pt-24 px-4 sm:px-6 lg:px-8 pb-12">
       <SEO title="工单中心" description="提交问题反馈，举报违规行为，联系管理团队。" url="/tickets" />
+      <PageTransition>
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
@@ -558,9 +567,15 @@ const TicketCenter = () => {
                       <span className="font-mono text-xs text-slate-400">#{ticket.id}</span>
                       <TicketStatusBadge status={ticket.status} />
                     </div>
-                    <h3 className="font-medium text-slate-900 dark:text-white line-clamp-1 mb-1">
-                      {ticket.description}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                         {(() => {
+                            const cat = TICKET_CATEGORIES.find(c => c.id === (ticket as any).category) || TICKET_CATEGORIES.find(c => c.id === 'other')!;
+                            return <cat.icon size={14} className={cat.color} />;
+                         })()}
+                         <h3 className="font-medium text-slate-900 dark:text-white line-clamp-1 flex-1">
+                           {ticket.description}
+                         </h3>
+                    </div>
                     <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
                       <span className="flex items-center gap-1">
                          <Clock size={12} />
@@ -605,7 +620,21 @@ const TicketCenter = () => {
                     <TicketStatusBadge status={ticketDetail.item.status} />
                   </div>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                        <div className="text-slate-500 text-xs mb-1">分类</div>
+                        <div className="font-medium dark:text-slate-200 flex items-center gap-2">
+                            {(() => {
+                                const cat = TICKET_CATEGORIES.find(c => c.id === (ticketDetail.item as any).category) || TICKET_CATEGORIES.find(c => c.id === 'other')!;
+                                return (
+                                    <>
+                                        <cat.icon size={16} className={cat.color} />
+                                        {cat.label}
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </div>
                     <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                       <div className="text-slate-500 text-xs mb-1">服务器</div>
                       <div className="font-medium dark:text-slate-200">{SERVER_NAMES[ticketDetail.item.server || ''] || ticketDetail.item.server || '-'}</div>
@@ -748,6 +777,7 @@ const TicketCenter = () => {
                                 }}
                            />
                          </div>
+                         
                          <div className={clsx("max-w-[80%] min-w-0 flex flex-col", isMe ? "items-end" : "items-start")}>
                            {!isSameUser && (
                                <div className={clsx("text-xs text-slate-500 mb-1 ml-1 flex items-center gap-1.5", isMe ? "mr-1 justify-end" : "ml-1 justify-start")}>
@@ -764,7 +794,14 @@ const TicketCenter = () => {
                              "p-3 rounded-2xl text-sm shadow-sm break-words whitespace-pre-wrap w-fit",
                              isMe ? "bg-brand-500 text-white rounded-tr-none" : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-none"
                            )}>
-                             {formattedMessage}
+                              {/* Check if message contains image markdown */}
+                              {formattedMessage.match(/!\[(.*?)\]\((.*?)\)/) ? (
+                                <div dangerouslySetInnerHTML={{ 
+                                  __html: formattedMessage.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="rounded-lg max-w-full h-auto mt-2 mb-2 border border-white/20 dark:border-slate-600 shadow-sm" loading="lazy" />')
+                                }}></div>
+                              ) : (
+                                formattedMessage
+                              )}
                            </div>
                            <div className={clsx("text-xs text-slate-400 mt-1", isMe ? "text-right" : "text-left")}>
                              {new Date(log.created_at).toLocaleString()}
@@ -848,6 +885,7 @@ const TicketCenter = () => {
           </div>
         </div>
       </div>
+      </PageTransition>
 
       {/* Create Modal */}
       <AnimatePresence mode="wait">
@@ -889,6 +927,30 @@ const TicketCenter = () => {
                     </div>
                   )}
                   
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                      问题分类
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                      {TICKET_CATEGORIES.map(cat => (
+                        <button
+                          type="button"
+                          key={cat.id}
+                          onClick={() => setCreateForm({...createForm, category: cat.id})}
+                          className={clsx(
+                            "flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 gap-2",
+                            createForm.category === cat.id
+                              ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 shadow-sm ring-2 ring-brand-500/20"
+                              : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-brand-300 dark:hover:border-brand-700 hover:bg-slate-100 dark:hover:bg-slate-700"
+                          )}
+                        >
+                          <cat.icon size={20} className={createForm.category === cat.id ? "text-brand-500" : cat.color} />
+                          <span className="text-sm font-medium">{cat.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
                       选择服务器

@@ -164,10 +164,15 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, status, username, onCh
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: 0.4 }}
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 mb-8"
+                    className="flex flex-col items-center justify-center gap-1 px-6 py-3 bg-gray-100 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 mb-8"
                  >
-                     <span className="text-gray-500 dark:text-gray-400 font-medium">获得奖励</span>
-                     <span className="text-xl font-bold text-orange-500">+{reward.xp} XP</span>
+                     <div className="flex items-center gap-2">
+                        <span className="text-gray-500 dark:text-gray-400 font-medium">获得奖励</span>
+                        <span className="text-xl font-bold text-orange-500">+{reward.xp} XP</span>
+                     </div>
+                     <span className="text-xs text-orange-500 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
+                         含每日首次签到奖励 +80 XP
+                     </span>
                  </motion.div>
 
                  <motion.button
@@ -306,9 +311,14 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, status, username, onCh
             </motion.button>
             
             {!status.web.checked && (
-                <p className="text-center text-xs text-gray-500 mt-3">
-                    今日签到可获得 <span className="text-blue-500 font-bold">{status.web.today_reward} XP</span>
-                </p>
+                <div className="text-center mt-3 space-y-1">
+                    <p className="text-xs text-gray-500">
+                        今日签到可获得 <span className="text-blue-500 font-bold">{status.web.today_reward} XP</span>
+                    </p>
+                    <p className="text-[10px] text-orange-500 font-medium">
+                        (含每日首次签到额外奖励 +80 XP)
+                    </p>
+                </div>
             )}
         </div>
         </>

@@ -5,6 +5,7 @@ export interface Ticket {
   player_name: string;
   player_uuid: string;
   server: string | null;
+  category: string;
   description: string;
   contact: string | null;
   status: TicketStatus;
@@ -31,6 +32,7 @@ export interface CreateTicketDTO {
   player_name: string;
   player_uuid: string;
   server?: string;
+  category?: string;
   description: string;
   contact?: string;
 }

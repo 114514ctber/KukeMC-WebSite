@@ -12,7 +12,9 @@ export const unfollowUser = async (username: string) => {
 };
 
 export const getFollowStats = async (username: string) => {
-  const response = await api.get<FollowStats>(`/api/users/${username}/follow/stats`);
+  const response = await api.get<FollowStats>(`/api/users/${username}/follow/stats`, {
+    params: { _t: Date.now() }
+  });
   return response.data;
 };
 

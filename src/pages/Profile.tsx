@@ -474,9 +474,11 @@ const Profile = () => {
   
   // Cache state for tabs
   const [tabDataCache, setTabDataCache] = useState<{
+    username: string | null,
     posts: { data: Post[], loaded: boolean },
     collections: { data: Post[], loaded: boolean }
   }>({
+    username: null,
     posts: { data: [], loaded: false },
     collections: { data: [], loaded: false }
   });
@@ -516,11 +518,37 @@ const Profile = () => {
   }, [location.search]);
 
   useEffect(() => {
+    // Reset cache when switching users
+    setTabDataCache({
+      username: username || null,
+      posts: { data: [], loaded: false },
+      collections: { data: [], loaded: false }
+    });
+    setUserPosts([]);
+    setUserCollections([]);
+    setCollectedAlbums([]);
+  }, [username]);
+
+  useEffect(() => {
     if (username) {
-      if (activeTab === 'posts' && !tabDataCache.posts.loaded) fetchUserPosts(username);
-      if (activeTab === 'collections' && !tabDataCache.collections.loaded) fetchUserCollections();
+      const isCacheValid = tabDataCache.username === username;
+
+      if (activeTab === 'posts') {
+         if (!isCacheValid || !tabDataCache.posts.loaded) {
+             fetchUserPosts(username);
+         } else {
+             setUserPosts(tabDataCache.posts.data);
+         }
+      }
+      if (activeTab === 'collections') {
+         if (!isCacheValid || !tabDataCache.collections.loaded) {
+             fetchUserCollections();
+         } else {
+             setUserCollections(tabDataCache.collections.data);
+         }
+      }
     }
-  }, [username, token, activeTab]);
+  }, [username, token, activeTab, tabDataCache]);
 
   const fetchFollowStatsData = async (name: string) => {
     try {
@@ -536,7 +564,11 @@ const Profile = () => {
     try {
       const res = await getPosts({ author: name });
       setUserPosts(res.data);
-      setTabDataCache(prev => ({ ...prev, posts: { data: res.data, loaded: true } }));
+      setTabDataCache(prev => ({ 
+          ...prev, 
+          username: name,
+          posts: { data: res.data, loaded: true } 
+      }));
     } catch (error) {
       console.error(error);
     } finally {
@@ -554,7 +586,13 @@ const Profile = () => {
       // We don't need to fetch collected albums separately anymore as getPosts returns mixed content
       setCollectedAlbums([]); 
 
-      setTabDataCache(prev => ({ ...prev, collections: { data: postsRes.data, loaded: true } }));
+      setTabDataCache(prev => ({ 
+          ...prev, 
+          // Note: collections don't necessarily depend on 'username' param if they are always "my collections"
+          // But to keep consistency with the cache key strategy:
+          username: username || prev.username,
+          collections: { data: postsRes.data, loaded: true } 
+      }));
     } catch (error) {
       console.error(error);
     } finally {
@@ -605,7 +643,10 @@ const Profile = () => {
     setIsAlbumLoading(true);
     try {
       const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-      const res = await api.get<Album[]>(`/api/album/list/${name}`, config);
+      const res = await api.get<Album[]>(`/api/album/list/${name}`, {
+        ...config,
+        params: { _t: Date.now() }
+      });
       setAlbums(res.data);
     } catch (err) {
       console.error('Failed to fetch albums', err);
@@ -874,7 +915,10 @@ const Profile = () => {
   const fetchProfile = async (name: string) => {
     try {
       const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-      const res = await api.get<UserProfile>(`/api/profile/${name}`, config);
+      const res = await api.get<UserProfile>(`/api/profile/${name}`, {
+        ...config,
+        params: { _t: Date.now() }
+      });
       setProfile(res.data);
     } catch (err) {
       console.error('Failed to fetch profile', err);
@@ -1161,6 +1205,7 @@ const Profile = () => {
       }
 
       return {
+        ...prev,
         posts: { ...prev.posts, data: newPostsData },
         collections: { ...prev.collections, data: newCollectionsData }
       };
@@ -1172,6 +1217,7 @@ const Profile = () => {
     setUserCollections(prev => prev.filter(p => p.id !== postId));
     
     setTabDataCache(prev => ({
+      ...prev,
       posts: { ...prev.posts, data: prev.posts.data.filter(p => p.id !== postId) },
       collections: { ...prev.collections, data: prev.collections.data.filter(p => p.id !== postId) }
     }));

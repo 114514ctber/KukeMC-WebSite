@@ -9,7 +9,9 @@ export const getPosts = async (params: {
   tag?: string;
   is_collected?: boolean; 
 }) => {
-  const response = await api.get<PostListResponse>('/api/posts', { params });
+  const response = await api.get<PostListResponse>('/api/posts', { 
+    params: { ...params, _t: Date.now() } 
+  });
   return response.data;
 };
 

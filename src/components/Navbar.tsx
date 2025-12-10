@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Menu, 
@@ -29,6 +29,7 @@ import api from '../utils/api';
 
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationList } from './NotificationList';
+import { UserProfileCard } from './UserProfileCard';
 import { useAuth } from '../context/AuthContext';
 
 interface NavLinkItem {
@@ -99,6 +100,22 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [ticketCount, setTicketCount] = useState(0);
+  const [showProfileCard, setShowProfileCard] = useState(false);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setShowProfileCard(true);
+  };
+
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setShowProfileCard(false);
+    }, 200);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -266,19 +283,23 @@ const Navbar = () => {
              <ThemeToggle />
              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
             {user ? (
-              <Link to={`/player/${user.username}`} className="flex items-center gap-3 pl-1">
-                <div className="flex items-center gap-3 rounded-xl pl-1 pr-4 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                  <img 
-                    src={`https://cravatar.eu/helmavatar/${user.username}/32.png`} 
-                    alt={user.username}
-                    className="w-8 h-8 rounded-lg ring-2 ring-white dark:ring-slate-800"
-                  />
-                  <div className="flex flex-col">
+              <div 
+                className="relative"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
+                <Link to={`/player/${user.username}`} className="flex items-center gap-3 pl-1 py-2">
+                  <div className="flex items-center gap-3 rounded-xl pl-1 pr-4 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <img 
+                      src={`https://cravatar.eu/helmavatar/${user.username}/32.png`} 
+                      alt={user.username}
+                      className="w-8 h-8 rounded-lg ring-2 ring-white dark:ring-slate-800"
+                    />
                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-none">{user.username}</span>
-                    <button onClick={(e) => { e.preventDefault(); logout(); }} className="text-[10px] text-red-500 hover:text-red-600 font-medium text-left mt-0.5">退出登录</button>
                   </div>
-                </div>
-              </Link>
+                </Link>
+                <UserProfileCard isOpen={showProfileCard} onClose={() => setShowProfileCard(false)} />
+              </div>
             ) : (
               <Link
                 to="/login"

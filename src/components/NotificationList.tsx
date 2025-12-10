@@ -57,7 +57,53 @@ export const NotificationList = () => {
       case 'post_comment': return <MessageSquare className="text-blue-500" size={12} />;
       case 'post_collect': return <Star className="text-yellow-500" size={12} />;
       case 'follow': return <UserPlus className="text-indigo-500" size={12} />;
-      default: return <Bell size={12} />;
+      
+      // Missing types that might be used
+      case 'photo_collect': return <Star className="text-yellow-500" size={12} />;
+      case 'album_like': return <Heart className="text-pink-500" size={12} />;
+      case 'album_collect': return <Star className="text-yellow-500" size={12} />;
+      case 'album_comment': return <MessageSquare className="text-purple-500" size={12} />;
+
+      default: 
+        // Fuzzy match fallback
+        if (type.includes('like')) return <Heart className="text-red-500" size={12} />;
+        if (type.includes('comment') || type.includes('reply')) return <MessageSquare className="text-blue-500" size={12} />;
+        if (type.includes('collect')) return <Star className="text-yellow-500" size={12} />;
+        if (type.includes('follow')) return <UserPlus className="text-indigo-500" size={12} />;
+        return <Bell size={12} />;
+    }
+  };
+
+  const getActionText = (type: string) => {
+    switch (type) {
+      case 'profile_like': return '赞了你的个人主页';
+      case 'photo_like': return '赞了你的相册';
+      case 'profile_message': return '给你的个人主页留言';
+      case 'message_reply': return '回复了你的留言';
+      case 'photo_comment': return '评论了你的相册';
+      case 'message_like': return '赞了你的留言';
+      case 'ticket_reply': return '回复了你的工单';
+      case 'mention': return '提到了你';
+      case 'post_like': return '赞了你的动态';
+      case 'post_comment': return '评论了你的动态';
+      case 'post_collect': return '收藏了你的动态';
+      case 'follow': return '关注了你';
+
+      // Missing types
+      case 'photo_collect': return '收藏了你的照片';
+      case 'album_like': return '赞了你的相册';
+      case 'album_collect': return '收藏了你的相册';
+      case 'album_comment': return '评论了你的相册';
+
+      default: 
+        // Fuzzy match fallback
+        if (type.includes('like')) return '赞了你的内容';
+        if (type.includes('comment')) return '评论了你的内容';
+        if (type.includes('collect')) return '收藏了你的内容';
+        if (type.includes('reply')) return '回复了你';
+        if (type.includes('follow')) return '关注了你';
+        
+        return `有新的通知 (${type})`;
     }
   };
 
@@ -68,6 +114,12 @@ export const NotificationList = () => {
         // Need to ensure these query params are handled in Profile.tsx
         case 'photo_like': return `/player/${n.user_id}?tab=album&photo=${n.target_id}`; 
         case 'photo_comment': return `/player/${n.user_id}?tab=album&photo=${n.target_id}`;
+        case 'photo_collect': return `/player/${n.user_id}?tab=album&photo=${n.target_id}`;
+
+        case 'album_like': 
+        case 'album_collect': 
+        case 'album_comment': 
+            return `/player/${n.user_id}?tab=albums`;
         
         case 'profile_message': return `/player/${n.user_id}?msg=${n.target_id}`;
         case 'message_reply': return `/player/${n.user_id}?msg=${n.target_id}`;
@@ -84,7 +136,20 @@ export const NotificationList = () => {
         case 'follow':
             return `/player/${n.sender_id}`;
             
-        default: return '#';
+        default: 
+             // Fuzzy match
+            if (n.type.includes('album') || n.type.includes('photo')) {
+                return `/player/${n.user_id}?tab=albums`;
+            }
+            if (n.type.includes('post')) {
+                return `/activity/${n.target_id}`;
+            }
+            
+            // Default fallback to sender's profile if nothing else matches
+            if (n.sender_id && n.sender_id !== 'system') {
+                return `/player/${n.sender_id}`;
+            }
+            return '#';
     }
   };
 
@@ -161,6 +226,7 @@ export const NotificationList = () => {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-slate-800 dark:text-slate-200 font-medium truncate">
                             <span className="font-bold">{n.sender_id}</span>
+                            <span className="font-normal ml-1">{getActionText(n.type)}</span>
                           </p>
                           <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
                             {n.content_preview}

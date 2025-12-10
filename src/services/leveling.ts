@@ -23,6 +23,7 @@ export interface CheckInStatus {
     checked: boolean;
     streak: number;
   };
+  today_checkin_count: number;
 }
 
 export interface Task {
@@ -67,7 +68,7 @@ export interface LeaderboardEntry {
   total_xp: number;
 }
 
-export const getLeaderboard = async () => {
-  const response = await api.get<LeaderboardEntry[]>('/api/level/leaderboard');
+export const getLeaderboard = async (limit: number = 50) => {
+  const response = await api.get<LeaderboardEntry[]>('/api/level/leaderboard', { params: { limit } });
   return response.data;
 };
