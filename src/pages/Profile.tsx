@@ -490,30 +490,38 @@ const Profile = () => {
     }
   }, [musicMeta]);
 
+  // Handle interaction fallback for autoplay blocked
   useEffect(() => {
     const handleInteraction = () => {
+        // Only run if autoplay was specifically blocked
+        if (!autoplayBlocked) return;
+        
         const audio = audioRef.current;
         if (!audio) return;
-        if (!audio.paused) return;
-
-        const playPromise = audio.play();
-        if (playPromise && typeof (playPromise as any).catch === 'function') {
-            (playPromise as any).catch((err: any) => {
-                console.error("Interaction play failed", err);
-            });
+        
+        // Try to play on interaction
+        if (audio.paused) {
+            const playPromise = audio.play();
+            if (playPromise && typeof (playPromise as any).catch === 'function') {
+                (playPromise as any).catch((err: any) => {
+                    console.error("Interaction play failed", err);
+                });
+            }
         }
     };
 
-    document.addEventListener('click', handleInteraction);
-    document.addEventListener('keydown', handleInteraction);
-    document.addEventListener('touchstart', handleInteraction);
+    if (autoplayBlocked) {
+        document.addEventListener('click', handleInteraction, { once: true });
+        document.addEventListener('keydown', handleInteraction, { once: true });
+        document.addEventListener('touchstart', handleInteraction, { once: true });
+    }
 
     return () => {
         document.removeEventListener('click', handleInteraction);
         document.removeEventListener('keydown', handleInteraction);
         document.removeEventListener('touchstart', handleInteraction);
     };
-  }, []);
+  }, [autoplayBlocked]);
   
   // Confirm Modal State
   const [confirmModal, setConfirmModal] = useState<{
