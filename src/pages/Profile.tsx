@@ -441,7 +441,7 @@ const Profile = () => {
   
   // Music Player State
   const [musicMeta, setMusicMeta] = useState<MusicMeta | null>(null);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false); // Default to false
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const audioRef = React.useRef<HTMLAudioElement>(null);
   const [progress, setProgress] = useState(0);
@@ -451,7 +451,7 @@ const Profile = () => {
        // Reset state when music changes
        setMusicMeta(null);
        setProgress(0);
-       setIsPlaying(true);
+       setIsPlaying(false); // Don't preemptively set playing state
        setAutoplayBlocked(false);
        
        api.get(`/api/profile/music/${profile.music_id}`)
@@ -463,63 +463,94 @@ const Profile = () => {
   }, [profile?.music_id]);
 
   useEffect(() => {
-     // Try to autoplay when musicMeta is loaded
-     if (musicMeta && audioRef.current) {
-         const audio = audioRef.current;
-         audio.volume = 0.5; // Set reasonable default volume
-         
-         // Define listener outside to be accessible for cleanup
-         const resumeAudio = async () => {
-            if (!audioRef.current) return;
-            try {
-                await audioRef.current.play();
-                setIsPlaying(true);
-                setAutoplayBlocked(false);
-                // Cleanup listeners
-                document.removeEventListener('click', resumeAudio);
-                document.removeEventListener('keydown', resumeAudio);
-                document.removeEventListener('touchstart', resumeAudio);
-            } catch (e) {
-                console.error("Resume play failed", e);
+    // Try to autoplay when musicMeta is loaded
+    if (musicMeta && audioRef.current) {
+        const audio = audioRef.current;
+        audio.volume = 0.5; // Set reasonable default volume
+        
+        // Centralized event handlers for state sync
+        const handlePlay = () => {
+            setIsPlaying(true);
+            setAutoplayBlocked(false);
+        };
+
+        const handlePause = () => {
+            setIsPlaying(false);
+        };
+
+        const handleEnded = () => {
+            setIsPlaying(false);
+        };
+
+        const handleError = (e: Event) => {
+            console.error("Audio playback error:", e);
+            setIsPlaying(false);
+        };
+
+        // Attach listeners
+        audio.addEventListener('play', handlePlay);
+        audio.addEventListener('pause', handlePause);
+        audio.addEventListener('ended', handleEnded);
+        audio.addEventListener('error', handleError);
+
+        let interactionHandler: (() => void) | null = null;
+
+        const cleanupInteraction = () => {
+            if (interactionHandler) {
+                document.removeEventListener('click', interactionHandler);
+                document.removeEventListener('keydown', interactionHandler);
+                document.removeEventListener('touchstart', interactionHandler);
+                interactionHandler = null;
             }
-         };
+        };
 
-         const attemptPlay = async () => {
-             try {
-                 // Ensure the audio is ready to play
-                 if (audio.readyState >= 2) {
-                    await audio.play();
-                 } else {
-                    audio.oncanplay = async () => {
-                        await audio.play();
-                        audio.oncanplay = null; // Clean up
-                    };
-                 }
-                 
-                 setIsPlaying(true);
-                 setAutoplayBlocked(false);
-             } catch (error) {
-                 console.log("Autoplay blocked:", error);
-                 setIsPlaying(false);
-                 setAutoplayBlocked(true);
-                 
-                 // Add one-time listener for user interaction to resume play
-                 document.addEventListener('click', resumeAudio);
-                 document.addEventListener('keydown', resumeAudio);
-                 document.addEventListener('touchstart', resumeAudio);
-             }
-         };
-         
-         attemptPlay();
+        const attemptPlay = async () => {
+            try {
+                await audio.play();
+                // State update will happen via 'play' event
+            } catch (error) {
+                console.log("Autoplay blocked:", error);
+                setAutoplayBlocked(true);
+                setIsPlaying(false);
+                
+                // Add one-time listener for user interaction to resume play
+                interactionHandler = async () => {
+                   if (!audioRef.current) return;
+                   try {
+                       await audioRef.current.play();
+                   } catch (e) {
+                       console.error("Resume play failed", e);
+                   }
+                };
+                
+                document.addEventListener('click', interactionHandler, { once: true });
+                document.addEventListener('keydown', interactionHandler, { once: true });
+                document.addEventListener('touchstart', interactionHandler, { once: true });
+                
+                // If play succeeds later (e.g. user clicked play button), cleanup these listeners
+                audio.addEventListener('play', cleanupInteraction, { once: true });
+            }
+        };
+        
+        // Check readiness before playing
+        if (audio.readyState >= 3) { // HAVE_FUTURE_DATA
+            attemptPlay();
+        } else {
+            audio.addEventListener('canplay', attemptPlay, { once: true });
+        }
 
-         // Cleanup function to remove listeners if component unmounts or music changes
-         return () => {
-            document.removeEventListener('click', resumeAudio);
-            document.removeEventListener('keydown', resumeAudio);
-            document.removeEventListener('touchstart', resumeAudio);
-         };
-     }
-   }, [musicMeta]);
+        return () => {
+            cleanupInteraction();
+            audio.removeEventListener('play', handlePlay);
+            audio.removeEventListener('pause', handlePause);
+            audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('error', handleError);
+            audio.removeEventListener('canplay', attemptPlay);
+            audio.removeEventListener('play', cleanupInteraction);
+            audio.pause();
+        };
+    }
+  }, [musicMeta]);
   
   // Confirm Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -2864,7 +2895,6 @@ const Profile = () => {
                             if (audioRef.current) {
                                 if (isPlaying) audioRef.current.pause();
                                 else audioRef.current.play();
-                                setIsPlaying(!isPlaying);
                             }
                          }}
                          className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-emerald-500 hover:text-white text-slate-700 dark:text-slate-200 transition-colors flex-shrink-0"
@@ -2896,7 +2926,7 @@ const Profile = () => {
 
                  <audio 
                     ref={audioRef}
-                    src={musicMeta ? (musicMeta.url || `https://music.163.com/song/media/outer/url?id=${profile.music_id}.mp3`) : undefined}
+                    src={musicMeta?.url || `https://music.163.com/song/media/outer/url?id=${profile.music_id}.mp3`}
                     preload="auto"
                     loop
                     onTimeUpdate={() => {
@@ -2906,8 +2936,6 @@ const Profile = () => {
                             if (duration) setProgress((current / duration) * 100);
                         }
                     }}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
                     className="hidden"
                  />
               </div>
