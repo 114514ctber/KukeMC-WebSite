@@ -8,7 +8,8 @@ import {
   ChevronRight,
   Shield,
   FileText,
-  MessageCircle
+  MessageCircle,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getFollowStats } from '../services/follow';
@@ -253,7 +254,8 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
                   { to: `/player/${user.username}`, icon: UserIcon, label: '个人中心' },
                   { to: '/dashboard', icon: LayoutDashboard, label: '任务中心' },
                   { to: '/chat', icon: MessageCircle, label: '在线聊天' },
-                  { to: '/tickets', icon: FileText, label: '我的工单' }
+                  { to: '/tickets', icon: FileText, label: '我的工单' },
+                  { to: '/settings', icon: Settings, label: '设置' }
                 ].map((item) => (
                   <motion.div key={item.to} variants={itemVariants}>
                     <Link 

@@ -16,6 +16,7 @@ import {
 import clsx from 'clsx';
 import { Ticket, TicketLog, CreateTicketDTO, TicketStatus } from '../types/ticket';
 import { SERVER_NAMES } from '../utils/servers';
+import { useToast } from '../context/ToastContext';
 
 const TICKET_CATEGORIES = [
   { id: 'bug', label: 'Bug反馈', icon: AlertCircle, color: 'text-red-500' },
@@ -54,12 +55,13 @@ const TicketStatusBadge = ({ status }: { status: TicketStatus }) => {
 const ImageUpload = ({ onUploadComplete, disabled }: { onUploadComplete: (url: string) => void, disabled?: boolean }) => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { warning, error } = useToast();
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       if (!file.type.startsWith('image/')) {
-        alert('请上传有效的图片文件');
+        warning('请上传有效的图片文件');
         return;
       }
       
@@ -78,7 +80,7 @@ const ImageUpload = ({ onUploadComplete, disabled }: { onUploadComplete: (url: s
 
         onUploadComplete(response.data.url);
       } catch (err) {
-        alert('图片上传失败，请稍后重试');
+        error('图片上传失败，请稍后重试');
         console.error(err);
       } finally {
         setIsUploading(false);
@@ -121,6 +123,7 @@ const getWsUrl = (path: string) => {
 const TicketCenter = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const { warning, error: toastError } = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [playerUuid, setPlayerUuid] = useState<string | null>(null);
@@ -313,7 +316,7 @@ const TicketCenter = () => {
     e.preventDefault();
     if (!createForm.description.trim()) return;
     if (!playerUuid) {
-      alert("无法获取您的UUID，请稍后重试或联系管理员");
+      warning("无法获取您的UUID，请稍后重试或联系管理员");
       return;
     }
 
@@ -330,7 +333,7 @@ const TicketCenter = () => {
         fetchTickets();
       }
     } catch (err: any) {
-      alert(err.response?.data?.detail || "提交失败");
+      toastError(err.response?.data?.detail || "提交失败");
     } finally {
       setSubmitting(false);
     }
@@ -382,7 +385,7 @@ const TicketCenter = () => {
       // Revert on failure
       setTicketDetail(prev => prev ? ({ ...prev, logs: prev.logs.filter(l => l.id !== tempId) }) : null);
       setReplyContent(contentToSend);
-      alert(err.response?.data?.detail || "回复失败");
+      toastError(err.response?.data?.detail || "回复失败");
     }
   };
 
@@ -399,7 +402,7 @@ const TicketCenter = () => {
         fetchTickets();
       }
     } catch (err: any) {
-      alert(err.response?.data?.detail || "状态更新失败");
+      toastError(err.response?.data?.detail || "状态更新失败");
     }
   };
 
@@ -416,7 +419,7 @@ const TicketCenter = () => {
         fetchTickets();
       }
     } catch (err: any) {
-      alert(err.response?.data?.detail || "分配失败");
+      toastError(err.response?.data?.detail || "分配失败");
     }
   };
 

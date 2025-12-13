@@ -4,6 +4,7 @@ import { X, Calendar as CalendarIcon, Check, Sparkles } from 'lucide-react';
 import ModalPortal from '../ModalPortal';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import { useToast } from '../../context/ToastContext';
 
 interface Props {
   isOpen: boolean;
@@ -14,9 +15,10 @@ interface Props {
 }
 
 const CheckInModal: React.FC<Props> = ({ isOpen, onClose, status, username, onCheckInSuccess }) => {
+  const { error } = useToast();
   const [loading, setLoading] = useState(false);
   const [currentDate] = useState(new Date());
-  const [reward, setReward] = useState<{ xp: number, streak: number } | null>(null);
+  const [reward, setReward] = useState<{ xp: number, streak: number, bonus_xp?: number } | null>(null);
 
   if (!isOpen) return null;
 
@@ -50,14 +52,14 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, status, username, onCh
             }
           }());
 
-          setReward({ xp: res.xp_awarded, streak: res.streak });
+          setReward({ xp: res.xp_awarded, streak: res.streak, bonus_xp: res.bonus_xp });
           onCheckInSuccess();
       } else {
-          alert(res.message || "签到失败");
+          error(res.message || "签到失败");
       }
-    } catch (error) {
-      console.error(error);
-      alert("签到失败，请稍后重试");
+    } catch (err) {
+      console.error(err);
+      error("签到失败，请稍后重试");
     } finally {
       setLoading(false);
     }
@@ -170,9 +172,11 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, status, username, onCh
                         <span className="text-gray-500 dark:text-gray-400 font-medium">获得奖励</span>
                         <span className="text-xl font-bold text-orange-500">+{reward.xp} XP</span>
                      </div>
-                     <span className="text-xs text-orange-500 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
-                         含每日首次签到奖励 +80 XP
-                     </span>
+                     {reward.bonus_xp && reward.bonus_xp > 0 && (
+                        <span className="text-xs text-orange-500 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
+                            含每日全服首签奖励 +{reward.bonus_xp} XP
+                        </span>
+                     )}
                  </motion.div>
 
                  <motion.button
@@ -315,9 +319,15 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, status, username, onCh
                     <p className="text-xs text-gray-500">
                         今日签到可获得 <span className="text-blue-500 font-bold">{status.web.today_reward} XP</span>
                     </p>
-                    <p className="text-[10px] text-orange-500 font-medium">
-                        (含每日首次签到额外奖励 +80 XP)
-                    </p>
+                    {status.web.bonus_xp && status.web.bonus_xp > 0 ? (
+                        <p className="text-[10px] text-orange-500 font-medium">
+                            (含每日全服首签额外奖励 +{status.web.bonus_xp} XP)
+                        </p>
+                    ) : (
+                        <p className="text-[10px] text-gray-400 font-medium">
+                            (今日全服首签已被抢占)
+                        </p>
+                    )}
                 </div>
             )}
         </div>

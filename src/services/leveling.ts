@@ -17,6 +17,7 @@ export interface CheckInStatus {
     checked: boolean;
     streak: number;
     today_reward: number;
+    bonus_xp?: number;
     calendar: string[]; // ISO dates
   };
   server: {

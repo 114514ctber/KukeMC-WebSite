@@ -10,6 +10,8 @@ import { Link } from 'react-router-dom';
 import MentionInput from '../components/MentionInput';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface Message {
   id: number;
@@ -242,6 +244,8 @@ const MessageCard = ({
 
 const Messages = () => {
   const { user, token, loading: authLoading } = useAuth();
+  const { error: toastError, success: toastSuccess, warning } = useToast();
+  const { confirm } = useConfirm();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -337,7 +341,7 @@ const Messages = () => {
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || 
                       (err.response?.data?.detail ? JSON.stringify(err.response.data.detail) : '发布失败');
-      alert(errorMsg);
+      toastError(errorMsg);
     } finally {
       setIsPosting(false);
     }
@@ -363,17 +367,24 @@ const Messages = () => {
     } catch (err: any) {
        const errorMsg = err.response?.data?.error || 
                       (err.response?.data?.detail ? JSON.stringify(err.response.data.detail) : '回复失败');
-      alert(errorMsg);
+      toastError(errorMsg);
     } finally {
       setIsReplying(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这条留言吗？')) return;
+    const isConfirmed = await confirm({
+      title: '删除留言',
+      message: '确定要删除这条留言吗？',
+      isDangerous: true,
+      confirmText: '删除',
+    });
+
+    if (!isConfirmed) return;
     
     if (!adminKey && !token) {
-        alert('请先登录');
+        warning('请先登录');
         return;
     }
 
@@ -389,8 +400,9 @@ const Messages = () => {
         headers
       });
       fetchMessages();
+      toastSuccess('删除成功');
     } catch (err: any) {
-      alert('删除失败: ' + (err.response?.data?.error || err.message));
+      toastError('删除失败: ' + (err.response?.data?.error || err.message));
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import api, { generateUploadHeaders } from '../utils/api';
 import SEO from '../components/SEO';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,7 +7,7 @@ import {
   User, Clock, MessageSquare, 
   AlertCircle, Loader2, Send, Shield, 
   Hash, Activity, CalendarDays,
-  Reply, Trash2, X, Heart, Edit2, Plus, AlertTriangle, ThumbsUp, Image as ImageIcon, Upload, MessageCircle,
+  Reply, Trash2, X, Heart, Edit2, AlertTriangle, ThumbsUp, Image as ImageIcon, Upload, MessageCircle,
   UserPlus, UserMinus, Bookmark, Users, ChevronRight, Ban,
   Star, Play, Pause
 } from 'lucide-react';
@@ -16,12 +16,12 @@ import { useAuth } from '../context/AuthContext';
 import PostCard from '../components/PostCard';
 import MentionInput from '../components/MentionInput';
 import ContributionGraph from '../components/ContributionGraph';
-import ConfirmModal from '../components/ConfirmModal';
-import ModalPortal from '../components/ModalPortal';
 import { getPosts } from '../services/activity';
 import { followUser, unfollowUser, getFollowStats } from '../services/follow';
 import { getLevelColor } from '../utils/levelUtils';
 import { useCurrentUserLevel } from '../hooks/useCurrentUserLevel';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 import { Post, FollowStats } from '../types/activity';
 
@@ -401,6 +401,9 @@ const getThumbnailUrl = (url: string) => {
 const Profile = () => {
   const { username } = useParams<{ username: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { error: toastError, success: toastSuccess, warning: toastWarning } = useToast();
+  const { confirm } = useConfirm();
   
   const { user, token, loading: authLoading } = useAuth();
   
@@ -429,15 +432,6 @@ const Profile = () => {
 
   // Profile Extended State
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({
-    signature: '',
-    bio: '',
-    tags: [] as string[],
-    newTag: '',
-    music_id: ''
-  });
-  const [isUpdating, setIsUpdating] = useState(false);
   
   // Music Player State
   const [musicMeta, setMusicMeta] = useState<MusicMeta | null>(null);
@@ -522,21 +516,7 @@ const Profile = () => {
         document.removeEventListener('touchstart', handleInteraction);
     };
   }, [autoplayBlocked]);
-  
-  // Confirm Modal State
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    isDangerous?: boolean;
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    isDangerous: false
-  });
+
 
   // Album State
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -986,24 +966,26 @@ const Profile = () => {
     }
   };
 
-  const handleDeleteAlbum = (albumId: number) => {
-    setConfirmModal({
-      isOpen: true,
+  const handleDeleteAlbum = async (albumId: number) => {
+    const isConfirmed = await confirm({
       title: '删除照片',
       message: '确定要删除这张照片吗？此操作无法撤销。',
       isDangerous: true,
-      onConfirm: async () => {
-        try {
-          await api.delete(`/api/album/${albumId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (selectedAlbum?.id === albumId) setSelectedAlbum(null);
-          setAlbums(prev => prev.filter(a => a.id !== albumId));
-        } catch (err: any) {
-          alert(err.response?.data?.detail || '删除失败');
-        }
-      }
+      confirmText: '删除',
     });
+
+    if (!isConfirmed) return;
+
+    try {
+      await api.delete(`/api/album/${albumId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (selectedAlbum?.id === albumId) setSelectedAlbum(null);
+      setAlbums(prev => prev.filter(a => a.id !== albumId));
+      toastSuccess('删除成功');
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || '删除失败');
+    }
   };
 
   const fetchProfile = async (name: string) => {
@@ -1019,6 +1001,10 @@ const Profile = () => {
     }
   };
 
+  const handleBindQQ = () => {
+    navigate('/settings');
+  };
+
   const handleLike = async () => {
     if (!user || !username) return;
     try {
@@ -1028,70 +1014,11 @@ const Profile = () => {
       // Optimistic update or refetch
       fetchProfile(username);
     } catch (err: any) {
-      alert(err.response?.data?.detail || '操作失败');
+      toastError(err.response?.data?.detail || '操作失败');
     }
   };
 
-  const openEditModal = () => {
-    setEditForm({
-      signature: profile?.signature || '',
-      bio: profile?.bio || '',
-      tags: profile?.tags ? [...profile.tags] : [],
-      newTag: '',
-      music_id: profile?.music_id || ''
-    });
-    setShowEditModal(true);
-  };
 
-  const handleAddTag = () => {
-    const tag = editForm.newTag.trim();
-    if (!tag) return;
-    if (editForm.tags.length >= 6) {
-      alert('最多只能添加6个标签');
-      return;
-    }
-    if (tag.length > 10) {
-      alert('标签长度不能超过10个字');
-      return;
-    }
-    if (editForm.tags.includes(tag)) {
-      alert('标签已存在');
-      return;
-    }
-    setEditForm(prev => ({
-      ...prev,
-      tags: [...prev.tags, tag],
-      newTag: ''
-    }));
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setEditForm(prev => ({
-      ...prev,
-      tags: prev.tags.filter(t => t !== tagToRemove)
-    }));
-  };
-
-  const handleUpdateProfile = async () => {
-    if (!user || !username) return;
-    setIsUpdating(true);
-    try {
-      await api.post('/api/profile/update', {
-        signature: editForm.signature,
-        bio: editForm.bio,
-        tags: editForm.tags,
-        music_id: editForm.music_id
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setShowEditModal(false);
-      fetchProfile(username);
-    } catch (err: any) {
-      alert(err.response?.data?.detail || '更新失败');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
 
   const fetchLevelInfo = async (name: string) => {
     try {
@@ -1190,7 +1117,7 @@ const Profile = () => {
     if (!postContent.trim() || !user || !username) return;
 
     if (currentUserLevel !== null && currentUserLevel < 5) {
-      alert('您的等级不足 5 级，无法发布留言。请前往游戏内升级！');
+      toastWarning('您的等级不足 5 级，无法发布留言。请前往游戏内升级！');
       return;
     }
 
@@ -1206,8 +1133,9 @@ const Profile = () => {
       });
       setPostContent('');
       fetchMessages(username);
+      toastSuccess('留言发布成功');
     } catch (err: any) {
-      alert(err.response?.data?.error || '发布失败');
+      toastError(err.response?.data?.error || '发布失败');
     } finally {
       setIsPosting(false);
     }
@@ -1230,37 +1158,40 @@ const Profile = () => {
       setReplyContent('');
       setReplyingTo(null);
       fetchMessages(username);
+      toastSuccess('回复成功');
     } catch (err: any) {
-      alert(err.response?.data?.error || '回复失败');
+      toastError(err.response?.data?.error || '回复失败');
     } finally {
       setIsReplying(false);
     }
   };
 
-  const handleDelete = (id: number) => {
-    setConfirmModal({
-      isOpen: true,
+  const handleDelete = async (id: number) => {
+    const isConfirmed = await confirm({
       title: '删除留言',
       message: '确定要删除这条留言吗？此操作无法撤销。',
       isDangerous: true,
-      onConfirm: async () => {
-        const authHeader = adminKey ? `Bearer ${adminKey}` : (token ? `Bearer ${token}` : null);
-        
-        if (!authHeader) {
-          alert('无权删除');
-          return;
-        }
-
-        try {
-          await api.delete(`/api/message/${id}`, {
-            headers: { 'Authorization': authHeader }
-          });
-          if (username) fetchMessages(username);
-        } catch (err: any) {
-          alert('删除失败: ' + (err.response?.data?.error || err.message));
-        }
-      }
+      confirmText: '删除',
     });
+
+    if (!isConfirmed) return;
+
+    const authHeader = adminKey ? `Bearer ${adminKey}` : (token ? `Bearer ${token}` : null);
+    
+    if (!authHeader) {
+      toastError('无权删除');
+      return;
+    }
+
+    try {
+      await api.delete(`/api/message/${id}`, {
+        headers: { 'Authorization': authHeader }
+      });
+      if (username) fetchMessages(username);
+      toastSuccess('删除成功');
+    } catch (err: any) {
+      toastError('删除失败: ' + (err.response?.data?.error || err.message));
+    }
   };
 
   const handlePostUpdate = (updatedPost: Post) => {
@@ -1551,11 +1482,21 @@ const Profile = () => {
                   <User size={14} />
                   {profile?.custom_title || '玩家'}
                 </span>
-                {details.qq && (
+                {details.qq ? (
                    <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-medium flex items-center gap-1.5">
                      <MessageSquare size={14} />
                      QQ已绑定
                    </span>
+                ) : (
+                  user && user.username === details.username && (
+                    <button 
+                      onClick={handleBindQQ}
+                      className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-medium flex items-center gap-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
+                    >
+                      <MessageSquare size={14} />
+                      绑定QQ
+                    </button>
+                  )
                 )}
                  {details.ban_count > 0 && (
                    <span className="px-3 py-1 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium flex items-center gap-1.5">
@@ -1572,13 +1513,13 @@ const Profile = () => {
                 
                 {/* Edit Profile Button */}
                 {user && user.username === details.username && (
-                  <button 
-                    onClick={openEditModal}
+                  <Link 
+                    to="/settings"
                     className="ml-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-sm font-medium flex items-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
                   >
                     <Edit2 size={14} />
                     编辑资料
-                  </button>
+                  </Link>
                 )}
               </div>
               {isBanned && (
@@ -2297,15 +2238,7 @@ const Profile = () => {
 
       </div>
 
-      {/* Confirm Modal */}
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmModal.onConfirm}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        isDangerous={confirmModal.isDangerous}
-      />
+
 
       {/* User List Modal */}
       <UserListModal 
@@ -2316,194 +2249,8 @@ const Profile = () => {
         loading={userListLoading}
       />
 
-      {/* Edit Profile Modal */}
-      <ModalPortal>
-      <AnimatePresence>
-        {showEditModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowEditModal(false)}
-            />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-white/20 ring-1 ring-black/5"
-            >
-              <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
-                <div>
-                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white">编辑个人资料</h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">展示最独特的你</p>
-                </div>
-                <button onClick={() => setShowEditModal(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="关闭">
-                  <X size={24} />
-                </button>
-              </div>
-              
-              <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-                {/* Signature */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    个性签名 <span className="text-slate-400 font-normal text-xs ml-1">(50字以内)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.signature}
-                    onChange={(e) => setEditForm({...editForm, signature: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 text-slate-900 dark:text-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none placeholder:text-slate-400"
-                    maxLength={50}
-                    placeholder="写一句简短的签名..."
-                  />
-                </div>
+      {/* Edit Profile Modal - Removed and moved to Settings page */}
 
-                {/* Music ID */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    网易云音乐 ID <span className="text-slate-400 font-normal text-xs ml-1">(选填)</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={editForm.music_id}
-                      onChange={(e) => {
-                         // Only allow numbers
-                         if (/^\d*$/.test(e.target.value)) {
-                            setEditForm({...editForm, music_id: e.target.value});
-                         }
-                      }}
-                      className="w-full px-4 py-3 pl-10 rounded-xl bg-slate-50 dark:bg-slate-950 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 text-slate-900 dark:text-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none placeholder:text-slate-400"
-                      placeholder="输入网易云音乐歌曲 ID"
-                    />
-                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                     </div>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                     仅支持网易云音乐。在网易云音乐分享歌曲链接中可找到 ID，例如：music.163.com/song?id=<b>123456</b>
-                  </p>
-                </div>
-
-                {/* Bio */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    个人简介 <span className="text-slate-400 font-normal text-xs ml-1">(500字以内)</span>
-                  </label>
-                  <textarea
-                    value={editForm.bio}
-                    onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 text-slate-900 dark:text-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none h-32 resize-none placeholder:text-slate-400"
-                    maxLength={500}
-                    placeholder="介绍一下你自己..."
-                  />
-                </div>
-
-                {/* Tags */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    个人标签 <span className="text-slate-400 font-normal text-xs ml-1">(最多6个)</span>
-                  </label>
-                  
-                  <div className="flex flex-wrap gap-2 min-h-[40px]">
-                    <AnimatePresence mode="popLayout">
-                      {editForm.tags.map(tag => (
-                        <motion.div 
-                          layout
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0.8, opacity: 0 }}
-                          key={tag} 
-                          className="group flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-100 dark:border-emerald-500/20 shadow-sm"
-                        >
-                          <span className="text-sm font-medium">{tag}</span>
-                          <button 
-                            onClick={() => handleRemoveTag(tag)} 
-                            className="p-0.5 rounded-md hover:bg-emerald-200 dark:hover:bg-emerald-500/30 text-emerald-400 hover:text-emerald-700 transition-colors"
-                            title="移除标签"
-                          >
-                            <X size={14} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={editForm.newTag}
-                        onChange={(e) => setEditForm({...editForm, newTag: e.target.value})}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none placeholder:text-slate-400"
-                        placeholder="输入新标签..."
-                        maxLength={10}
-                      />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
-                        回车添加
-                      </div>
-                    </div>
-                    <button 
-                      onClick={handleAddTag}
-                      disabled={editForm.tags.length >= 6 || !editForm.newTag.trim()}
-                      className="px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 active:scale-95"
-                      title="添加标签"
-                    >
-                      <Plus size={20} />
-                    </button>
-                  </div>
-                  
-                  <div className="pt-2">
-                    <div className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wider">推荐标签</div>
-                    <div className="flex flex-wrap gap-2">
-                      {["生存玩家", "冒险玩家", "建筑玩家", "跑酷", "肝帝", "红石大佬", "粘液科技", "PVP大佬", "起床大神"].map(tag => (
-                        <button
-                          key={tag}
-                          onClick={() => {
-                            if (!editForm.tags.includes(tag) && editForm.tags.length < 6) {
-                              setEditForm(prev => ({...prev, tags: [...prev.tags, tag]}));
-                            }
-                          }}
-                          disabled={editForm.tags.includes(tag)}
-                          className={clsx(
-                            "px-3 py-1.5 text-xs rounded-lg transition-all border",
-                            editForm.tags.includes(tag)
-                              ? "bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent cursor-not-allowed"
-                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:shadow-sm cursor-pointer"
-                          )}
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-8 py-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
-                <button 
-                  onClick={() => setShowEditModal(false)}
-                  className="px-6 py-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800 rounded-xl transition-colors font-medium"
-                >
-                  取消
-                </button>
-                <button 
-                  onClick={handleUpdateProfile}
-                  disabled={isUpdating}
-                  className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-2 font-medium shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95"
-                >
-                  {isUpdating && <Loader2 size={18} className="animate-spin" />}
-                  保存更改
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-      </ModalPortal>
 
 
       {/* Upload Modal */}
@@ -2767,13 +2514,20 @@ const Profile = () => {
                               {(user && (user.username === comment.username || user.username === selectedAlbum.username || isAdmin)) && (
                                  <button 
                                    onClick={async () => {
-                                      if(!confirm('删除这条评论？')) return;
+                                      const isConfirmed = await confirm({
+                                        title: '删除评论',
+                                        message: '确定要删除这条评论吗？',
+                                        isDangerous: true,
+                                        confirmText: '删除'
+                                      });
+                                      if (!isConfirmed) return;
                                       try {
                                          await api.delete(`/api/album/comment/${comment.id}`, { headers: { Authorization: `Bearer ${token}` } });
                                          setAlbumComments(prev => prev.filter(c => c.id !== comment.id));
                                          // Update count
                                          setAlbums(prev => prev.map(a => a.id === selectedAlbum.id ? { ...a, comment_count: Math.max(0, a.comment_count - 1) } : a));
-                                      } catch (e) { alert('删除失败'); }
+                                         toastSuccess('删除成功');
+                                      } catch (e) { toastError('删除失败'); }
                                    }}
                                    className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                    title="删除评论"

@@ -11,6 +11,7 @@ import { useCurrentUserLevel } from '../../hooks/useCurrentUserLevel';
 import { useAuth } from '../../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { useToast } from '../../context/ToastContext';
 
 interface VoteModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface VoteModalProps {
 const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal: initialProposal, onSuccess }) => {
   const { user } = useAuth();
   const { level: userLevel } = useCurrentUserLevel();
+  const { error: toastError } = useToast();
   const [fullProposal, setFullProposal] = useState<ConsensusProposal>(initialProposal);
   
   const [voteType, setVoteType] = useState<'agree' | 'disagree'>(
@@ -123,7 +125,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal: initia
           setReplyingTo(null);
           await fetchProposalDetails(); // Refresh to show new reply
       } catch (err: any) {
-          alert(err.response?.data?.detail || "回复失败");
+          toastError(err.response?.data?.detail || "回复失败");
       } finally {
           setSubmittingReply(false);
       }

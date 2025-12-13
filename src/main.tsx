@@ -6,6 +6,8 @@ import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
 import { LevelProvider } from './context/LevelContext'
+import { ToastProvider } from './context/ToastContext'
+import { ConfirmProvider } from './context/ConfirmContext'
 
 import { HelmetProvider } from 'react-helmet-async'
 
@@ -16,7 +18,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <LevelProvider>
             <ThemeProvider defaultTheme="system" storageKey="kukemc-theme">
-              <App />
+              <ToastProvider>
+                <ConfirmProvider>
+                  <App />
+                </ConfirmProvider>
+              </ToastProvider>
             </ThemeProvider>
           </LevelProvider>
         </AuthProvider>

@@ -20,6 +20,7 @@ import ConsensusPage from './pages/Consensus';
 import ProposalDetail from './pages/ProposalDetail';
 import NotFound from './pages/NotFound';
 import LiveChat from './pages/LiveChat';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
           <Route path="player/:username" element={<Profile />} />
           <Route path="skin" element={<Skin />} />
           <Route path="thanks" element={<Thanks />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

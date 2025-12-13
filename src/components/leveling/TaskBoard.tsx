@@ -3,6 +3,7 @@ import { Task, claimTask } from '../../services/leveling';
 import { CheckCircle, Gift } from 'lucide-react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import { useToast } from '../../context/ToastContext';
 
 interface Props {
   tasks: Task[] | null;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 const TaskBoard: React.FC<Props> = ({ tasks, username, onTaskUpdate, loading }) => {
+  const { error } = useToast();
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const handleClaim = async (taskId: string, e: React.MouseEvent) => {
@@ -34,11 +36,11 @@ const TaskBoard: React.FC<Props> = ({ tasks, username, onTaskUpdate, loading }) 
           });
           onTaskUpdate();
       } else {
-          alert("领取失败");
+          error("领取失败");
       }
-    } catch (error) {
-      console.error(error);
-      alert("领取失败");
+    } catch (err) {
+      console.error(err);
+      error("领取失败");
     } finally {
       setLoadingId(null);
     }

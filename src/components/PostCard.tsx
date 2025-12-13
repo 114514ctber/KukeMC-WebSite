@@ -16,6 +16,8 @@ import CreatePostModal from './CreatePostModal';
 import api from '../utils/api';
 import MentionInput from './MentionInput';
 import { useCurrentUserLevel } from '../hooks/useCurrentUserLevel';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface PostCardProps {
   post: Post;
@@ -28,6 +30,8 @@ interface PostCardProps {
 const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, onDelete, className, isDetail = false }, ref) => {
   const { user, token } = useAuth();
   const { level: currentUserLevel } = useCurrentUserLevel();
+  const { success, error, warning } = useToast();
+  const confirm = useConfirm();
   const [isLiked, setIsLiked] = useState(post.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count);
   const [isCollected, setIsCollected] = useState(post.is_collected);
@@ -125,7 +129,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
     if (!commentContent.trim() || !user) return;
 
     if (currentUserLevel !== null && currentUserLevel < 5) {
-      alert('您的等级不足 5 级，无法评论。请前往游戏内升级！');
+      warning('您的等级不足 5 级，无法评论。请前往游戏内升级！');
       return;
     }
 
@@ -162,7 +166,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
         });
       }
     } catch (err: any) {
-      alert(err.response?.data?.detail || '评论失败');
+      error(err.response?.data?.detail || '评论失败');
     } finally {
       setIsSubmittingComment(false);
     }
@@ -179,7 +183,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
-      alert('复制链接失败，请手动复制');
+      error('复制链接失败，请手动复制');
     }
   };
 
@@ -253,7 +257,15 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('确定要删除这条内容吗？')) return;
+    const isConfirmed = await confirm({
+      title: '删除内容',
+      message: '确定要删除这条内容吗？此操作无法撤销。',
+      isDangerous: true,
+      confirmText: '删除',
+    });
+
+    if (!isConfirmed) return;
+
     try {
       if (post.type === 'album') {
         await deleteAlbum(post.id);
@@ -261,9 +273,10 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
         await deletePost(post.id);
       }
       if (onDelete) onDelete(post.id);
-    } catch (error) {
-      console.error(error);
-      alert('删除失败');
+      success('删除成功');
+    } catch (err: any) {
+      console.error(err);
+      error(err.response?.data?.detail || '删除失败');
     }
   };
 

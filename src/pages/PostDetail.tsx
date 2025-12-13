@@ -12,6 +12,7 @@ import remarkGfm from 'remark-gfm';
 import api from '../utils/api';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { useToast } from '../context/ToastContext';
 import { getAlbum, createAlbumComment } from '../services/album';
 
 const stripMarkdown = (markdown: string) => {
@@ -31,6 +32,7 @@ const PostDetail = () => {
   const isAlbum = searchParams.get('type') === 'album';
   const { user, token, loading: authLoading } = useAuth();
   const { level: currentUserLevel } = useCurrentUserLevel();
+  const { warning, error: toastError } = useToast();
   const navigate = useNavigate();
   
   const [post, setPost] = useState<Post | null>(null);
@@ -149,7 +151,7 @@ const PostDetail = () => {
     if (!commentContent.trim() || !post) return;
 
     if (currentUserLevel !== null && currentUserLevel < 5) {
-        alert('您的等级不足 5 级，无法评论。请前往游戏内升级！');
+        warning('您的等级不足 5 级，无法评论。请前往游戏内升级！');
         return;
     }
 
@@ -173,7 +175,7 @@ const PostDetail = () => {
       setCommentContent('');
       setReplyingTo(null);
     } catch (err: any) {
-      alert(err.response?.data?.detail || '评论失败');
+      toastError(err.response?.data?.detail || '评论失败');
     } finally {
       setIsSubmitting(false);
     }

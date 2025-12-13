@@ -16,11 +16,13 @@ import { getLevelColor } from '../utils/levelUtils';
 import { useAuth } from '../context/AuthContext';
 import { formatDistanceToNow, format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { useToast } from '../context/ToastContext';
 
 const ProposalDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { error: toastError } = useToast();
   const { level: userLevel } = useCurrentUserLevel();
   
   const [proposal, setProposal] = useState<ConsensusProposal | null>(null);
@@ -142,7 +144,7 @@ const ProposalDetail: React.FC = () => {
               return { ...prev, recent_votes: newVotes };
           });
       } catch (err: any) {
-          alert(err.response?.data?.detail || "回复失败");
+          toastError(err.response?.data?.detail || "回复失败");
       } finally {
           setSubmittingReply(false);
       }
