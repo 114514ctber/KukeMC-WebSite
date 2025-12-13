@@ -128,6 +128,7 @@ const TaskBoard: React.FC<Props> = ({ tasks, username, onTaskUpdate, loading }) 
       </motion.div>
     );
   };
+  
 
   return (
     <div className="space-y-6">
