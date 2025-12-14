@@ -13,13 +13,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
-          username: root
-          port: 5463
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "开始自动部署 KukeMC 官网..."
-            cd /www/wwwroot/kuke.ink
-            git pull origin main
-            npm install --prefer-offline
-            npm run build
-            echo "部署成功！网站已更新。"
+          script: bash /root/deploy-website.sh
