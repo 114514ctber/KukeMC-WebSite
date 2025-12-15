@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Loader2, Send, Flame, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MarkdownEditor from '../MarkdownEditor';
-import { createPost, updatePost, getHotTopics } from '@/services/activity';
+import { createPost, updatePost, getHotTopics, getCategories } from '@/services/activity';
 import { updateAlbum } from '@/services/album';
 import { Post } from '@/types/activity';
 import ModalPortal from '../ModalPortal';
@@ -23,6 +23,12 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
   const { warning } = useToast();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [category, setCategory] = useState('daily');
+  const [availableCategories, setAvailableCategories] = useState<{ id: string; label: string; }[]>([
+    { id: 'daily', label: '日常分享' },
+    { id: 'tech', label: '技术探讨' },
+    { id: 'tutorial', label: '教程指导' }
+  ]);
   
   // Tag System State
   const [tags, setTags] = useState<string[]>([]);
@@ -44,14 +50,30 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
       setTitle(post.title);
       setContent(post.content);
       setTags(post.tags || []);
+      setCategory(post.category || 'daily');
     } else if (isOpen && !post) {
       // Reset for create mode
       setTitle('');
       setContent('');
       setTags([]);
       setTagInput('');
+      setCategory('daily');
     }
   }, [isOpen, post]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await getCategories();
+        if (data && data.length > 0) {
+          setAvailableCategories(data.map((c: any) => ({ id: c.slug, label: c.label })));
+        }
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Fetch suggestions when input changes (debounced ideally, but for now direct)
   useEffect(() => {
@@ -124,6 +146,19 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
     setIsSubmitting(true);
     setError(null);
     try {
+      // Extract tags from content if any
+      const contentTags = (content.match(/#[^\s#.,;!?，。！？]+/g) || [])
+          .map(t => t.replace(/^#/, ''));
+      // Merge unique tags
+      const finalTags = Array.from(new Set([...tags, ...contentTags]));
+
+      // Extract images from content for preview grid
+      const imageMatches = content.match(/!\[.*?\]\((.*?)\)/g) || [];
+      const images = imageMatches.map(match => {
+          const urlMatch = match.match(/\((.*?)\)/);
+          return urlMatch ? urlMatch[1] : '';
+      }).filter(url => url);
+
       let result;
       
       if (isEditing && post) {
@@ -135,42 +170,23 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
             });
         } else {
             // Update Post
-            // Extract tags from content if any
-            const contentTags = (content.match(/#[^\s#.,;!?，。！？]+/g) || [])
-                .map(t => t.replace(/^#/, ''));
-            // Merge unique tags
-            const finalTags = Array.from(new Set([...tags, ...contentTags]));
-
-            // Extract images from content for preview grid
-            const imageMatches = content.match(/!\[.*?\]\((.*?)\)/g) || [];
-            const images = imageMatches.map(match => {
-                const urlMatch = match.match(/\((.*?)\)/);
-                return urlMatch ? urlMatch[1] : '';
-            }).filter(url => url);
-
             result = await updatePost(post.id, {
                 title,
                 content,
                 tags: finalTags,
+                category,
                 images
             });
         }
       } else {
         // Create Post
-        // Extract tags from content if any
-        const contentTags = (content.match(/#[^\s#.,;!?，。！？]+/g) || [])
-            .map(t => t.replace(/^#/, ''));
-        // Merge unique tags
-        const finalTags = Array.from(new Set([...tags, ...contentTags]));
-
-        // Extract images from content for preview grid
-        const imageMatches = content.match(/!\[.*?\]\((.*?)\)/g) || [];
-        const images = imageMatches.map(match => {
-            const urlMatch = match.match(/\((.*?)\)/);
-            return urlMatch ? urlMatch[1] : '';
-        }).filter(url => url);
-
-        result = await createPost({ title, content, tags: finalTags, images });
+        result = await createPost({ 
+            title, 
+            content, 
+            tags: finalTags, 
+            category, 
+            images 
+        });
       }
 
       onSuccess(result);
@@ -242,6 +258,30 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
                         maxLength={100}
                       />
                     </div>
+
+                    {!isAlbum && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        选择分区
+                      </label>
+                      <div className="flex gap-2 flex-wrap">
+                        {availableCategories.map(cat => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setCategory(cat.id)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                              category === cat.id
+                                ? 'bg-emerald-500 border-emerald-500 text-white'
+                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    )}
 
                     {!isAlbum && (
                     <div>

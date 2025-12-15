@@ -25,6 +25,8 @@ export interface CheckInStatus {
     streak: number;
   };
   today_checkin_count: number;
+  today_web_checkin_count: number;
+  today_server_checkin_count: number;
   today_first_checkin_user?: {
     username: string;
     level: number;
@@ -48,7 +50,12 @@ export const getMyLevelInfo = async (username: string) => {
 };
 
 export const getCheckInStatus = async (username: string) => {
-  const response = await api.get<CheckInStatus>('/api/level/check-in/status', { params: { username } });
+  const response = await api.get<CheckInStatus>('/api/level/check-in/status', { 
+    params: { 
+      username,
+      _t: new Date().getTime() // Prevent caching
+    } 
+  });
   return response.data;
 };
 

@@ -5,9 +5,11 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import { Plus, Flame, Clock, Search, Loader2, Hash, X, ChevronDown } from 'lucide-react';
 import { Post } from '@/types/activity';
-import { getPosts, getHotTopics } from '@/services/activity';
+import { getPosts, getHotTopics, getCategories } from '@/services/activity';
 import PostCard from '@/components/next/PostCard';
 import CreatePostModal from '@/components/next/CreatePostModal';
+import TrendingTags from '@/components/next/TrendingTags';
+import Link from 'next/link';
 import clsx from 'clsx';
 
 const ActivityClient = () => {
@@ -17,12 +19,20 @@ const ActivityClient = () => {
   
   const [activeTab, setActiveTab] = useState<'square' | 'following'>('square');
   const [squareSort, setSquareSort] = useState<'latest' | 'hot'>('latest');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [hotTopics, setHotTopics] = useState<{name: string, count: number}[]>([]);
+  const [hotPosts, setHotPosts] = useState<Post[]>([]);
+  const [categories, setCategories] = useState<{ id: string; label: string; }[]>([
+    { id: 'all', label: '全部' },
+    { id: 'daily', label: '日常分享' },
+    { id: 'tech', label: '技术探讨' },
+    { id: 'tutorial', label: '教程指导' },
+  ]);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const fetchPosts = async (reset = false) => {
@@ -38,7 +48,8 @@ const ActivityClient = () => {
         page: reset ? 1 : page, 
         per_page: 10, 
         type,
-        tag: tagParam || undefined
+        tag: tagParam || undefined,
+        category: activeCategory !== 'all' ? activeCategory : undefined
       });
 
       if (reset) {
@@ -64,22 +75,30 @@ const ActivityClient = () => {
     }
   };
 
-  const fetchTopics = async () => {
+  const fetchSideBarData = async () => {
     try {
-      const topics = await getHotTopics();
+      const [topics, hotPostsData, categoriesData] = await Promise.all([
+        getHotTopics('', 10), // Limit to 10
+        getPosts({ type: 'hot', per_page: 5 }),
+        getCategories()
+      ]);
       setHotTopics(topics);
+      setHotPosts(hotPostsData.data);
+      if (categoriesData && categoriesData.length > 0) {
+         setCategories([{ id: 'all', label: '全部' }, ...categoriesData.map((c: any) => ({ id: c.slug, label: c.label }))]);
+      }
     } catch (error) {
       console.error(error);
     }
   };
 
   useEffect(() => {
-    fetchTopics();
+    fetchSideBarData();
   }, []);
 
   useEffect(() => {
     fetchPosts(true);
-  }, [activeTab, squareSort, tagParam]);
+  }, [activeTab, squareSort, tagParam, activeCategory]);
 
   const handleLoadMore = () => {
     if (!loading && hasMore) {
@@ -114,7 +133,7 @@ const ActivityClient = () => {
     if (activeTab === 'square' && squareSort === 'latest') {
       setPosts(prev => [newPost, ...prev]);
     }
-    fetchTopics();
+    fetchSideBarData();
   };
 
   const handlePostUpdate = (updatedPost: Post) => {
@@ -161,7 +180,10 @@ const ActivityClient = () => {
                 广场
               </button>
               <button
-                onClick={() => setActiveTab('following')}
+                onClick={() => {
+                  setActiveTab('following');
+                  setActiveCategory('all');
+                }}
                 className={clsx(
                   "px-4 py-2 rounded-lg text-sm font-medium transition-all",
                   activeTab === 'following'
@@ -175,7 +197,26 @@ const ActivityClient = () => {
 
             {/* Sub Tabs for Square */}
             {activeTab === 'square' && (
-              <div className="flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+              <div className="flex flex-col gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                {/* Category Filter */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => setActiveCategory(category.id)}
+                      className={clsx(
+                        "px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300",
+                        activeCategory === category.id
+                          ? "bg-white dark:bg-gray-800 text-primary-600 shadow-sm ring-1 ring-gray-100 dark:ring-gray-700"
+                          : "text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50"
+                      )}
+                    >
+                      {category.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-4">
                 <button
                   onClick={() => setSquareSort('latest')}
                   className={clsx(
@@ -194,6 +235,7 @@ const ActivityClient = () => {
                 >
                   <Flame size={16} /> 热门
                 </button>
+                </div>
               </div>
             )}
 
@@ -283,34 +325,52 @@ const ActivityClient = () => {
 
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Hot Topics Widget */}
-            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm sticky top-24">
-              <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                <Flame size={18} className="text-red-500" /> 热门话题
-              </h3>
-              {hotTopics.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {hotTopics.map(topic => (
-                    <button
-                      key={topic.name}
-                      onClick={() => router.push(`/activity?tag=${topic.name}`)}
-                      className={clsx(
-                        "px-3 py-1 rounded-full text-xs cursor-pointer transition-colors flex items-center gap-1",
-                        tagParam === topic.name 
-                          ? "bg-emerald-500 text-white"
-                          : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400"
-                      )}
-                    >
-                      #{topic.name}
-                      <span className="opacity-60 text-[10px] ml-0.5">{topic.count}</span>
-                    </button>
-                  ))}
+            <div className="sticky top-24 space-y-6">
+              {/* Trending Tags Widget */}
+              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Hash size={18} className="text-emerald-500" /> 热门话题
+                </h3>
+                <TrendingTags tags={hotTopics} />
+              </div>
+
+              {/* Hot Posts Widget */}
+              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Flame size={18} className="text-red-500" /> 热门动态
+                </h3>
+                <div className="space-y-4">
+                  {hotPosts.length > 0 ? (
+                    hotPosts.map((post, idx) => (
+                      <Link 
+                        key={post.id}
+                        href={`/activity/${post.id}`}
+                        className="block group"
+                      >
+                        <div className="flex gap-3">
+                          <div className="text-lg font-bold text-slate-300 dark:text-slate-600 w-4 text-center group-hover:text-emerald-500 transition-colors">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-200 line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                              {post.title || post.content.substring(0, 30)}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
+                              <span>{post.author.nickname || post.author.username}</span>
+                              <span>•</span>
+                              <span>{post.likes_count} 赞</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
+                      暂无热门动态
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
-                  暂无热门话题
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

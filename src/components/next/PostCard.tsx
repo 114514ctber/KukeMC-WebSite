@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Heart, MessageSquare, Bookmark, Share2, Trash2, Check, Edit2, Send, X, Loader2 } from 'lucide-react';
+import { Heart, MessageSquare, Bookmark, Share2, Trash2, Check, Edit2, Send, X, Loader2, Eye } from 'lucide-react';
 import { Post, Comment } from '@/types/activity';
 import { useAuth } from '@/context/AuthContext';
 import { toggleLikePost, toggleCollectPost, deletePost } from '@/services/activity';
@@ -539,8 +539,14 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
               <Bookmark size={18} className={clsx(isCollected && "fill-current")} />
               <span>{collectsCount > 0 ? collectsCount : '收藏'}</span>
             </button>
+
+            {/* View Count */}
+            <div className="flex items-center gap-1.5 text-sm text-slate-400 cursor-default" title="浏览量">
+              <Eye size={18} />
+              <span>{post.views_count || 0}</span>
+            </div>
           </div>
-          
+
           <button 
             onClick={handleShare}
             className={clsx(

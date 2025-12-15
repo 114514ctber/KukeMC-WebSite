@@ -7,6 +7,7 @@ export const getPosts = async (params: {
   type?: 'latest' | 'hot' | 'following'; 
   author?: string; 
   tag?: string;
+  category?: string; // Added category
   is_collected?: boolean; 
 }) => {
   const response = await api.get<PostListResponse>('/api/posts', { 
@@ -15,9 +16,15 @@ export const getPosts = async (params: {
   return response.data;
 };
 
-export const getHotTopics = async (query?: string) => {
-  const params = query ? { query } : {};
+export const getHotTopics = async (query?: string, limit: number = 10) => {
+  const params: any = { limit };
+  if (query) params.query = query;
   const response = await api.get<{name: string, count: number}[]>('/api/topics/hot', { params });
+  return response.data;
+};
+
+export const getCategories = async () => {
+  const response = await api.get<{ id: number; slug: string; label: string; }[]>('/api/categories');
   return response.data;
 };
 

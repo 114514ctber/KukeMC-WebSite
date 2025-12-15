@@ -9,6 +9,8 @@ import { useCurrentUserLevel } from '@/hooks/useCurrentUserLevel';
 import { Post, Comment } from '@/types/activity';
 import PostCard from './PostCard';
 import CommentSection, { UIComment } from './CommentSection';
+import AuthorInfoCard from './AuthorInfoCard';
+import RecommendedPosts from './RecommendedPosts';
 import api from '@/utils/api';
 import { useToast } from '@/context/ToastContext';
 import { createAlbumComment, getAlbum } from '@/services/album';
@@ -25,14 +27,20 @@ const PostDetailClient = ({ initialPost, isAlbum = false }: { initialPost: Post,
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch comments on mount if not already populated (server might not have fetched comments to save time/bandwidth or just basic info)
-    // Actually, we should fetch comments client side to keep page static but comments fresh?
-    // Or fetch them on server.
-    // For ISR, we can fetch comments on server, but they might be stale.
-    // Let's fetch comments on client side to ensure freshness, or hydration.
-    // The original logic fetches both.
-    // Let's assume initialPost is just the post data. We need to fetch comments.
-    
+    if (post) {
+      const key = `viewed_post_${post.id}`;
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, 'true');
+        // Logic to increment view count on backend would go here
+        api.post(`/api/posts/${post.id}/view`).catch(err => {
+            console.error('Failed to increment view count:', err);
+        });
+      }
+    }
+  }, [post]);
+
+  useEffect(() => {
+    // Fetch comments on mount
     if (initialPost) {
         fetchComments(initialPost.id.toString());
     }
@@ -175,8 +183,7 @@ const PostDetailClient = ({ initialPost, isAlbum = false }: { initialPost: Post,
 
   return (
     <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      <div className="relative z-10">
-        <div className="max-w-3xl mx-auto">
+      <div className="relative z-10 max-w-7xl mx-auto">
         <button 
           onClick={() => router.back()}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white mb-6 transition-colors"
@@ -185,26 +192,46 @@ const PostDetailClient = ({ initialPost, isAlbum = false }: { initialPost: Post,
           <span>返回</span>
         </button>
 
-        <div className="space-y-6">
-          <PostCard 
-            post={post} 
-            onUpdate={handlePostUpdate} 
-            onDelete={handlePostDelete}
-            className="!cursor-default hover:!shadow-sm" 
-            isDetail={true} 
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column: Author Info */}
+          <div className="lg:col-span-3">
+             <div className="sticky top-24">
+                <AuthorInfoCard author={post.author} />
+             </div>
+          </div>
 
-          {/* Comments Section */}
-          <CommentSection 
-            comments={comments as unknown as UIComment[]}
-            currentUser={user}
-            onSubmit={handleCommentSubmit}
-            onDelete={handleCommentDelete}
-            loading={loading}
-            title="全部评论"
-            className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6"
-          />
-        </div>
+          {/* Center Column: Post Content */}
+          <div className="lg:col-span-6 space-y-6">
+            <PostCard 
+              post={post} 
+              onUpdate={handlePostUpdate} 
+              onDelete={handlePostDelete}
+              className="!cursor-default hover:!shadow-sm" 
+              isDetail={true} 
+            />
+
+            {/* Comments Section */}
+            <CommentSection 
+              comments={comments as unknown as UIComment[]}
+              currentUser={user}
+              onSubmit={handleCommentSubmit}
+              onDelete={handleCommentDelete}
+              loading={loading}
+              title="全部评论"
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6"
+            />
+          </div>
+
+          {/* Right Column: Recommendations */}
+          <div className="lg:col-span-3">
+             <div className="sticky top-24">
+                <RecommendedPosts 
+                  currentPostId={post.id} 
+                  tags={post.tags}
+                  category={post.category}
+                />
+             </div>
+          </div>
         </div>
       </div>
     </div>

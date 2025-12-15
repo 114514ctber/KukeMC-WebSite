@@ -6,7 +6,7 @@ import { getMyLevelInfo, getCheckInStatus, getTasks, getLeaderboard, LevelInfo, 
 import LevelCard from '@/components/leveling/LevelCard';
 import TaskBoard from '@/components/leveling/TaskBoard';
 import CheckInModal from '@/components/leveling/CheckInModal';
-import Leaderboard from '@/components/leveling/Leaderboard';
+import Leaderboard from './Leaderboard';
 import Link from 'next/link';
 import { Calendar, LayoutDashboard, Crown, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -107,13 +107,24 @@ const UserLevelDashboardClient: React.FC = () => {
                     </div>
 
                     {/* Today's Check-in Count */}
-                    <div className="mb-4 p-3 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/10 dark:to-red-900/10 rounded-xl flex items-center justify-between border border-orange-100 dark:border-orange-900/30">
-                        <span className="text-xs font-bold text-orange-600 dark:text-orange-400">今日已签到</span>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-lg font-black text-orange-600 dark:text-orange-400">
-                                {checkInStatus.today_checkin_count || 0}
-                            </span>
-                            <span className="text-xs text-orange-400 dark:text-orange-500">人</span>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-3 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/10 dark:to-red-900/10 rounded-xl text-center border border-orange-100 dark:border-orange-900/30">
+                            <div className="text-xs font-bold text-orange-600 dark:text-orange-400 mb-1">网页今日签到</div>
+                            <div className="flex items-baseline justify-center gap-1">
+                                <span className="text-lg font-black text-orange-600 dark:text-orange-400">
+                                    {checkInStatus.today_web_checkin_count || 0}
+                                </span>
+                                <span className="text-xs text-orange-400 dark:text-orange-500">人</span>
+                            </div>
+                        </div>
+                        <div className="p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-xl text-center border border-emerald-100 dark:border-emerald-900/30">
+                            <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1">游戏今日签到</div>
+                            <div className="flex items-baseline justify-center gap-1">
+                                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                                    {checkInStatus.today_server_checkin_count || 0}
+                                </span>
+                                <span className="text-xs text-emerald-400 dark:text-emerald-500">人</span>
+                            </div>
                         </div>
                     </div>
 
@@ -137,7 +148,7 @@ const UserLevelDashboardClient: React.FC = () => {
                                     
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-0.5">
-                                            <span className="text-xs font-bold text-yellow-600 dark:text-yellow-500">今日首签</span>
+                                            <span className="text-xs font-bold text-yellow-600 dark:text-yellow-500">今日首位签到</span>
                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 font-bold">
                                                 Lv.{checkInStatus.today_first_checkin_user.level}
                                             </span>

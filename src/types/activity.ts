@@ -21,6 +21,8 @@ export interface Post {
   is_collected: boolean;
   images?: string[]; // URLs of images in the post (if extracted or attached)
   tags?: string[];
+  category?: string; // Added category
+  views_count?: number; // Added views_count
 }
 
 export interface Comment {
@@ -40,6 +42,7 @@ export interface CreatePostDTO {
   content: string;
   images?: string[];
   tags?: string[];
+  category?: string;
 }
 
 export interface PostListResponse {
