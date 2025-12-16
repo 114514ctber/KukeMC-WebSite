@@ -58,6 +58,16 @@ export const toggleCollectPost = async (id: number) => {
   return response.data;
 };
 
+export const toggleTopPost = async (id: number) => {
+  const response = await api.post<{ is_top: boolean; status: string }>(`/api/posts/${id}/toggle_top`);
+  return response.data;
+};
+
+export const toggleEssencePost = async (id: number) => {
+  const response = await api.post<{ is_essence: boolean; status: string }>(`/api/posts/${id}/toggle_essence`);
+  return response.data;
+};
+
 export const getComments = async (postId: number) => {
   const response = await api.get<Comment[]>(`/api/posts/${postId}/comments`);
   return response.data;

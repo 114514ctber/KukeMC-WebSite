@@ -24,6 +24,8 @@ export interface Post {
   tags?: string[];
   category?: string; // Added category
   views_count?: number; // Added views_count
+  is_top?: boolean;
+  is_essence?: boolean;
 }
 
 export interface Comment {

@@ -1,8 +1,10 @@
 export interface VoteReply {
+  id?: number;
   username: string;
   content: string;
   user_level: number;
   created_at: string;
+  custom_title?: string;
 }
 
 export interface VoteComment {
@@ -17,6 +19,8 @@ export interface VoteComment {
   likes: string[];
   replies: VoteReply[];
   is_liked_by_me: boolean;
+  is_featured?: boolean;
+  custom_title?: string;
 }
 
 export interface ConsensusProposal {

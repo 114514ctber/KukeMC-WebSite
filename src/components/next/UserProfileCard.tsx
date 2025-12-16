@@ -109,12 +109,12 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="absolute top-full left-1/2 mt-2 w-80 z-50 origin-top"
+          className="absolute top-full left-1/2 mt-2 w-72 z-50 origin-top"
           onMouseLeave={onClose}
         >
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 overflow-hidden ring-1 ring-black/5 dark:ring-white/10">
             {/* 顶部背景图 - 高度调整，颜色更浅更贴合主题 */}
-            <div className="h-24 relative overflow-hidden group">
+            <div className="h-20 relative overflow-hidden group">
                {/* 主背景渐变 - 更浅的蓝青色系 */}
                <div className="absolute inset-0 bg-gradient-to-br from-sky-300 via-blue-400 to-indigo-400 dark:from-blue-800 dark:via-indigo-800 dark:to-purple-900"></div>
                
@@ -168,9 +168,9 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
                </div>
             </div>
 
-            <div className="px-6 pb-6 relative">
+            <div className="px-5 pb-5 relative">
               {/* 头像 - 居中且放大 */}
-              <div className="relative -mt-12 mb-4 flex justify-center">
+              <div className="relative -mt-10 mb-3 flex justify-center">
                 <motion.div 
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -182,7 +182,7 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
                         <img 
                             src={`https://cravatar.eu/helmavatar/${user.username}/128.png`} 
                             alt={user.username}
-                            className="w-24 h-24 rounded-full border-[5px] border-white dark:border-slate-900 relative z-10 bg-white dark:bg-slate-800 transition-transform duration-300 group-hover:scale-105 shadow-lg"
+                            className="w-20 h-20 rounded-full border-[4px] border-white dark:border-slate-900 relative z-10 bg-white dark:bg-slate-800 transition-transform duration-300 group-hover:scale-105 shadow-lg"
                         />
                     </Link>
                     {user.role === 'admin' && (
@@ -200,26 +200,26 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
               </div>
 
               {/* 用户名和等级 - 居中布局 */}
-                <motion.div variants={itemVariants} className="text-center mb-6">
+                <motion.div variants={itemVariants} className="text-center mb-4">
                 <Link href={`/player/${user.username}`} className="inline-flex items-center gap-2 group">
-                    <span className="text-xl font-bold text-slate-800 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    <span className="text-lg font-bold text-slate-800 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                       {user.username}
                     </span>
-                    <LevelBadge level={levelInfo?.level} size="md" />
+                    <LevelBadge level={levelInfo?.level} size="sm" />
                 </Link>
                 
                 {/* 社交数据 - 增加交互动效 */}
-                <div className="flex justify-center items-center gap-6 mt-3 text-sm">
+                <div className="flex justify-center items-center gap-4 mt-2 text-sm">
                     <motion.div variants={statVariants} whileHover={{ scale: 1.1 }} className="flex flex-col items-center cursor-pointer group">
                         <span className="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-500 transition-colors">{stats.following}</span>
                         <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">关注</span>
                     </motion.div>
-                    <div className="w-px h-8 bg-slate-100 dark:bg-slate-800"></div>
+                    <div className="w-px h-6 bg-slate-100 dark:bg-slate-800"></div>
                     <motion.div variants={statVariants} whileHover={{ scale: 1.1 }} className="flex flex-col items-center cursor-pointer group">
                         <span className="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-500 transition-colors">{stats.followers}</span>
                         <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">粉丝</span>
                     </motion.div>
-                    <div className="w-px h-8 bg-slate-100 dark:bg-slate-800"></div>
+                    <div className="w-px h-6 bg-slate-100 dark:bg-slate-800"></div>
                     <motion.div variants={statVariants} whileHover={{ scale: 1.1 }} className="flex flex-col items-center cursor-pointer group">
                         <span className="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-500 transition-colors">0</span>
                         <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">动态</span>
@@ -229,7 +229,7 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
 
               {/* 等级进度条 */}
               {levelInfo && (
-                <motion.div variants={itemVariants} className="mb-6 group">
+                <motion.div variants={itemVariants} className="mb-4 group">
                     <div className="flex justify-between text-xs mb-2 text-slate-500 dark:text-slate-400 font-medium">
                         <span>经验进度</span>
                         <span className="font-mono text-slate-700 dark:text-slate-300">{levelInfo.current_xp} / {levelInfo.next_level_xp}</span>
@@ -248,7 +248,7 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
               )}
 
               {/* 菜单列表 - 依次滑入 */}
-              <div className="space-y-1.5 mb-5">
+              <div className="space-y-1 mb-4">
                 {[
                   { to: `/player/${user.username}`, icon: UserIcon, label: '个人中心' },
                   { to: '/dashboard', icon: LayoutDashboard, label: '任务中心' },
@@ -259,28 +259,28 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
                   <motion.div key={item.to} variants={itemVariants}>
                     <Link 
                       href={item.to} 
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all group relative overflow-hidden"
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all group relative overflow-hidden"
                     >
                         <div className="absolute inset-0 bg-emerald-50 dark:bg-emerald-900/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <item.icon size={18} className="group-hover:scale-110 group-hover:text-emerald-500 transition-transform duration-300 relative z-10" />
-                        <span className="font-medium relative z-10">{item.label}</span>
+                        <item.icon size={16} className="group-hover:scale-110 group-hover:text-emerald-500 transition-transform duration-300 relative z-10" />
+                        <span className="font-medium text-sm relative z-10">{item.label}</span>
                         <ChevronRight size={14} className="ml-auto opacity-0 -translate-x-2 group-hover:opacity-50 group-hover:translate-x-0 transition-all duration-300" />
                     </Link>
                   </motion.div>
                 ))}
               </div>
 
-              <motion.div variants={itemVariants} className="h-px bg-slate-100 dark:bg-slate-800 my-2" />
+              <motion.div variants={itemVariants} className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
 
               {/* 底部操作 - 依次滑入 */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <motion.button 
                     variants={itemVariants}
                     onClick={() => { logout(); onClose(); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group text-left relative overflow-hidden"
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group text-left relative overflow-hidden"
                 >
-                    <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-                    <span className="font-medium">退出登录</span>
+                    <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" />
+                    <span className="font-medium text-sm">退出登录</span>
                 </motion.button>
               </div>
 

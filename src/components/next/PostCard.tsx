@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, forwardRef } from 'react';
+import { useState, forwardRef, useEffect } from 'react';
 import Link from 'next/link';
 import MarkdownViewer from '@/components/MarkdownViewer';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Heart, MessageSquare, Bookmark, Share2, Trash2, Check, Edit2, Send, X, Loader2, Eye } from 'lucide-react';
+import { Heart, MessageSquare, Bookmark, Share2, Trash2, Check, Edit2, Send, X, Loader2, Eye, Pin, Award, Shield } from 'lucide-react';
 import { Post, Comment } from '@/types/activity';
 import { useAuth } from '@/context/AuthContext';
 import { toggleLikePost, toggleCollectPost, deletePost } from '@/services/activity';
@@ -44,6 +44,16 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
   const [isCopied, setIsCopied] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  const [isTop, setIsTop] = useState(post.is_top || false);
+  const [isEssence, setIsEssence] = useState(post.is_essence || false);
+  const isAdmin = user?.role === 'admin';
+
+  // Listen to post updates
+  useEffect(() => {
+    setIsTop(post.is_top || false);
+    setIsEssence(post.is_essence || false);
+  }, [post.is_top, post.is_essence]);
+  
   const [isFollowing, setIsFollowing] = useState(post.author.is_following);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
 
@@ -79,6 +89,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
                     username: commentAuthor.username || 'User',
                     nickname: commentAuthor.nickname || commentAuthor.username || 'User',
                     custom_title: commentAuthor.custom_title,
+                    level: c.level,
                     avatar: commentAuthor.avatar
                 },
                 replies: []
@@ -351,6 +362,16 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
                   {post.author.nickname || post.author.username}
                 </Link>
                 <LevelBadge level={post.author.level} size="sm" />
+                {isTop && (
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+                        <Pin size={10} className="fill-current" /> 置顶
+                    </span>
+                )}
+                {isEssence && (
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800">
+                        <Award size={10} className="fill-current" /> 精华
+                    </span>
+                )}
                 {post.author.custom_title && post.author.custom_title !== '玩家' && (
                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50">
                      {post.author.custom_title}
@@ -666,19 +687,7 @@ const CommentContent = ({ content }: { content: string }) => {
   
   return (
     <div className="prose dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-300 leading-relaxed break-words">
-       <ReactMarkdown 
-          remarkPlugins={[remarkGfm]}
-          components={{
-              a: ({node, ...props}) => (
-                <Link href={props.href || '#'} className="text-emerald-500 hover:underline" onClick={(e) => e.stopPropagation()}>
-                  {props.children}
-                </Link>
-              ),
-              p: ({node, ...props}) => <p className="mb-1 last:mb-0" {...props} />
-          }}
-       >
-         {processed}
-       </ReactMarkdown>
+       <MarkdownViewer content={processed} className="!bg-transparent !p-0 !min-h-0" />
     </div>
   );
 };

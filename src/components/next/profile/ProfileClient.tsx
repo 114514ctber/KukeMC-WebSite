@@ -106,6 +106,7 @@ interface Message {
   player: string;
   recipient?: string | null;
   level?: number;
+  custom_title?: string;
   content: string;
   timestamp: number;
   parent_id: number | null;
@@ -826,7 +827,8 @@ const ProfileClient = () => {
         username: msg.player,
         nickname: msg.player,
         avatar: `https://cravatar.eu/helmavatar/${msg.player}/48.png`,
-        level: msg.level
+        level: msg.level,
+        custom_title: msg.custom_title
       },
       likes_count: msg.likes,
       is_liked: msg.is_liked,

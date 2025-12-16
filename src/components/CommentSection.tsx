@@ -4,8 +4,7 @@ import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { MessageSquare, ThumbsUp, Trash2, MessageCircle, Send, X, MoreHorizontal, Loader2, Smile, Image as ImageIcon, AtSign } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownViewer from './MarkdownViewer';
 import MentionInput from './MentionInput';
 import { Comment, Author } from '../types/activity';
 import clsx from 'clsx';
@@ -132,22 +131,9 @@ const CommentContent = ({ content }: { content: string }) => {
   );
   
   return (
-    <span className="prose dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-300 leading-relaxed break-words inline">
-       <ReactMarkdown 
-          remarkPlugins={[remarkGfm]}
-          components={{
-              a: ({node, ...props}) => (
-                <Link to={props.href || '#'} className="text-emerald-500 hover:underline" onClick={(e) => e.stopPropagation()}>
-                  {props.children}
-                </Link>
-              ),
-              p: ({node, ...props}) => <span className="inline" {...props} />,
-              img: CommentImage
-          }}
-       >
-         {processed}
-       </ReactMarkdown>
-    </span>
+    <div className="prose dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-300 leading-relaxed break-words">
+       <MarkdownViewer content={processed} className="!bg-transparent !p-0 !min-h-0" />
+    </div>
   );
 };
 
@@ -558,25 +544,13 @@ const CommentItem = ({
 
           {/* Content */}
           <div className="mb-2">
-            <div className="prose dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-300 leading-relaxed break-words">
-                <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                        a: ({node, ...props}) => (
-                        <Link to={props.href || '#'} className="text-emerald-500 hover:underline" onClick={(e) => e.stopPropagation()}>
-                            {props.children}
-                        </Link>
-                        ),
-                        p: ({node, ...props}) => <p className="mb-1 last:mb-0" {...props} />,
-                        img: CommentImage
-                    }}
-                >
-                    {comment.content.replace(
-                        /@([^ \t\n\r\f\v@,.!?;:，。！？]+)/g, 
-                        (match, username) => `[${match}](/player/${username})`
-                    )}
-                </ReactMarkdown>
-            </div>
+            <MarkdownViewer 
+                content={comment.content.replace(
+                    /@([^ \t\n\r\f\v@,.!?;:，。！？]+)/g, 
+                    (match, username) => `[${match}](/player/${username})`
+                )}
+                className="text-slate-700 dark:text-slate-300 leading-relaxed break-words !p-0 !min-h-0"
+            />
           </div>
 
           {/* Action Bar */}

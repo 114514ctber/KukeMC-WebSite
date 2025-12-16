@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ThumbsUp, ThumbsDown, AlertCircle, MessageSquare, Heart, Shield, User as UserIcon, Send, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownViewer from '../MarkdownViewer';
 import ModalPortal from '../ModalPortal';
 import { ConsensusProposal } from '../../types/consensus';
 import { submitVote, getProposal, likeVote, replyVote } from '../../services/consensus';
@@ -190,9 +189,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal: initia
                 </div>
 
                 <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {fullProposal.content}
-                    </ReactMarkdown>
+                    <MarkdownViewer content={fullProposal.content} />
                 </div>
             </div>
           </div>

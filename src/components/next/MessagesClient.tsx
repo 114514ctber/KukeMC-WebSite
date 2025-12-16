@@ -8,8 +8,7 @@ import api from '@/utils/api';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import MentionInput from '@/components/MentionInput';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownViewer from '@/components/MarkdownViewer';
 import { useToast } from '@/context/ToastContext';
 import { useConfirm } from '@/context/ConfirmContext';
 import LevelBadge from '@/components/LevelBadge';
@@ -36,21 +35,10 @@ const MessageContent = ({ content }: { content: string }) => {
   );
   
   return (
-    <div className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
-       <ReactMarkdown 
-          remarkPlugins={[remarkGfm]}
-          components={{
-              a: ({node, ...props}) => (
-                <Link href={props.href || '#'} className="text-emerald-500 hover:underline" onClick={(e) => e.stopPropagation()}>
-                  {props.children}
-                </Link>
-              ),
-              p: ({node, ...props}) => <span {...props} />
-          }}
-       >
-         {processed}
-       </ReactMarkdown>
-    </div>
+    <MarkdownViewer 
+        content={processed}
+        className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed !p-0 !min-h-0"
+    />
   );
 };
 

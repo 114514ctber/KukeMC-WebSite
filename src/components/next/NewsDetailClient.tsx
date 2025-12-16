@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownViewer from '@/components/MarkdownViewer';
 import { Loader2, AlertCircle, Calendar, User, ArrowLeft, Smile } from 'lucide-react';
 import api from '@/utils/api';
 import clsx from 'clsx';
@@ -68,7 +67,9 @@ const NewsDetailClient = ({ initialNews }: { initialNews: NewsItem }) => {
                 author: {
                     username: c.author_name,
                     nickname: c.author_name,
-                    avatar: `https://cravatar.eu/helmavatar/${c.author_name}/100.png`
+                    avatar: `https://cravatar.eu/helmavatar/${c.author_name}/100.png`,
+                    level: c.level,
+                    custom_title: c.custom_title
                 },
                 replies: []
             });
@@ -211,26 +212,10 @@ const NewsDetailClient = ({ initialNews }: { initialNews: NewsItem }) => {
           </div>
 
           <div className="prose prose-slate dark:prose-invert prose-emerald max-w-none">
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              components={{
-                a: ({node, ...props}) => <a {...props} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 transition-colors" target="_blank" rel="noopener noreferrer" />,
-                img: ({node, ...props}) => <img {...props} className="rounded-xl shadow-lg my-6" />,
-                code: ({node, inline, className, children, ...props}: any) => {
-                  return !inline ? (
-                    <pre className="bg-slate-100 dark:bg-slate-950/50 p-4 rounded-lg overflow-x-auto border border-slate-200 dark:border-white/10 my-4">
-                      <code className={className} {...props}>{children}</code>
-                    </pre>
-                  ) : (
-                    <code className="bg-slate-100 dark:bg-slate-800/50 px-1.5 py-0.5 rounded text-emerald-600 dark:text-emerald-300 text-sm font-mono" {...props}>
-                      {children}
-                    </code>
-                  )
-                }
-              }}
-            >
-              {news.content}
-            </ReactMarkdown>
+            <MarkdownViewer 
+              content={news.content}
+              className="!p-0 !min-h-0"
+            />
           </div>
 
           {/* Reactions */}

@@ -9,8 +9,7 @@ import {
     BarChart2, Lock, ClipboardCheck
 } from 'lucide-react';
 import clsx from 'clsx';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownViewer from '@/components/MarkdownViewer';
 import { ConsensusProposal } from '@/types/consensus';
 import { submitVote, getProposal, likeVote, replyVote } from '@/services/consensus';
 import { useCurrentUserLevel } from '@/hooks/useCurrentUserLevel';
@@ -47,13 +46,15 @@ const ProposalDetailClient = ({ initialId }: { initialId: number }) => {
           : `**[${vote.vote_type === 'agree' ? '支持' : '反对'}]** ${vote.reason || ''}`,
       created_at: vote.updated_at,
       author: {
-          username: vote.username,
-          nickname: vote.username,
-          avatar: vote.is_anonymous ? `https://cravatar.eu/helmavatar/Steve/48.png` : `https://cravatar.eu/helmavatar/${vote.username}/48.png`,
-          custom_title: !vote.is_anonymous ? `Lv.${vote.user_level}` : undefined
-      },
+              username: vote.username,
+              nickname: vote.username,
+              avatar: vote.is_anonymous ? `https://cravatar.eu/helmavatar/Steve/48.png` : `https://cravatar.eu/helmavatar/${vote.username}/48.png`,
+              custom_title: vote.custom_title,
+              level: vote.user_level
+          },
       likes_count: vote.likes?.length || 0,
       is_liked: vote.is_liked_by_me,
+      is_featured: vote.is_featured,
       replies: (vote.replies || []).map(r => ({
           id: r.id || Math.random(), // fallback if id missing
           content: r.content,
@@ -62,7 +63,8 @@ const ProposalDetailClient = ({ initialId }: { initialId: number }) => {
               username: r.username,
               nickname: r.username,
               avatar: `https://cravatar.eu/helmavatar/${r.username}/48.png`,
-              custom_title: `Lv.${r.user_level}`
+              custom_title: r.custom_title,
+              level: r.user_level
           }
       }))
     }));
@@ -266,11 +268,10 @@ const ProposalDetailClient = ({ initialId }: { initialId: number }) => {
                                     <div className="text-xs text-slate-500 dark:text-slate-400">官方发布</div>
                                 </div>
                             </div>
-                            <article className="prose prose-lg dark:prose-invert max-w-none text-slate-600 dark:text-slate-300">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {proposal.content}
-                                </ReactMarkdown>
-                            </article>
+                            <MarkdownViewer 
+                                content={proposal.content}
+                                className="prose-lg text-slate-600 dark:text-slate-300 !p-0 !min-h-0"
+                            />
                         </div>
                     </div>
 

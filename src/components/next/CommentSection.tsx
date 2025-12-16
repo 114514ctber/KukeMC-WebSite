@@ -5,9 +5,8 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { MessageSquare, ThumbsUp, Trash2, MessageCircle, Send, X, MoreHorizontal, Loader2, Smile, Image as ImageIcon, AtSign } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { MessageSquare, ThumbsUp, Trash2, MessageCircle, Send, X, MoreHorizontal, Loader2, Smile, Image as ImageIcon, AtSign, Star } from 'lucide-react';
+import MarkdownViewer from '@/components/MarkdownViewer';
 import MentionInput from './MentionInput';
 import clsx from 'clsx';
 import api, { generateUploadHeaders } from '@/utils/api';
@@ -30,6 +29,7 @@ export interface UIComment {
   parent_id?: number;
   likes_count?: number;
   is_liked?: boolean;
+  is_featured?: boolean;
 }
 
 interface CommentSectionProps {
@@ -135,22 +135,9 @@ const CommentContent = ({ content }: { content: string }) => {
   );
   
   return (
-    <span className="prose dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-300 leading-relaxed break-words inline">
-       <ReactMarkdown 
-          remarkPlugins={[remarkGfm]}
-          components={{
-              a: ({node, ...props}) => (
-                <Link href={props.href || '#'} className="text-emerald-500 hover:underline" onClick={(e) => e.stopPropagation()}>
-                  {props.children}
-                </Link>
-              ),
-              p: ({node, ...props}) => <span className="inline" {...props} />,
-              img: CommentImage
-          }}
-       >
-         {processed}
-       </ReactMarkdown>
-    </span>
+    <div className="prose dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-300 leading-relaxed break-words">
+       <MarkdownViewer content={processed} className="!bg-transparent !p-0 !min-h-0" />
+    </div>
   );
 };
 
@@ -562,29 +549,24 @@ const CommentItem = ({
                  {comment.author.custom_title}
                </span>
             )}
+
+            {comment.is_featured && (
+               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/50 flex items-center gap-1">
+                 <Star size={10} className="fill-current" />
+                 精选
+               </span>
+            )}
           </div>
 
           {/* Content */}
           <div className="mb-2">
-            <div className="prose dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-300 leading-relaxed break-words">
-                <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                        a: ({node, ...props}) => (
-                        <Link href={props.href || '#'} className="text-emerald-500 hover:underline" onClick={(e) => e.stopPropagation()}>
-                            {props.children}
-                        </Link>
-                        ),
-                        p: ({node, ...props}) => <p className="mb-1 last:mb-0" {...props} />,
-                        img: CommentImage
-                    }}
-                >
-                    {comment.content.replace(
-                        /@([^ \t\n\r\f\v@,.!?;:，。！？]+)/g, 
-                        (match, username) => `[${match}](/player/${username})`
-                    )}
-                </ReactMarkdown>
-            </div>
+            <MarkdownViewer 
+                content={comment.content.replace(
+                    /@([^ \t\n\r\f\v@,.!?;:，。！？]+)/g, 
+                    (match, username) => `[${match}](/player/${username})`
+                )}
+                className="text-slate-700 dark:text-slate-300 leading-relaxed break-words !p-0 !min-h-0"
+            />
           </div>
 
           {/* Action Bar */}
@@ -674,6 +656,13 @@ const CommentItem = ({
             {comment.author.custom_title && comment.author.custom_title !== '玩家' && (
                <span className="px-1 py-0 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 scale-90 origin-left">
                  {comment.author.custom_title}
+               </span>
+            )}
+            
+            {comment.is_featured && (
+               <span className="px-1 py-0 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/50 scale-90 origin-left flex items-center gap-1">
+                 <Star size={10} className="fill-current" />
+                 精选
                </span>
             )}
             
