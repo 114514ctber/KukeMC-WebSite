@@ -171,12 +171,11 @@ const Navbar = () => {
   ];
 
   const secondaryLinks: NavLinkItem[] = [
-    { name: '工单', path: '/tickets', icon: Ticket },
     { name: '监控', path: '/monitor', icon: Activity },
     { name: '留言', path: '/messages', icon: MessageSquare },
     { name: '皮肤', path: '/skin', icon: Shirt },
     { name: '文档', path: 'https://www.yuque.com/0ctber/kukemc-server/', icon: BookOpen, external: true },
-    { name: '地图', path: 'https://map.kuke.ink', icon: MapIcon, external: true },
+    { name: '地图', path: 'http://map.kuke.ink:28780/', icon: MapIcon, external: true },
     { name: '状态', path: 'https://status.kuke.ink', icon: Radio, external: true },
     { name: '鸣谢', path: '/thanks', icon: Heart },
   ];
