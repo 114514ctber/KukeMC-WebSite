@@ -10,7 +10,7 @@ module.exports = {
     max_memory_restart: '500M',
     env: {
       NODE_ENV: 'production',
-      PORT: 5460  // 👈 关键：指定端口
+      PORT: 5460  //
     }
   }]
 };
