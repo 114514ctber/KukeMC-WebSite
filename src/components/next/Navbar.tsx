@@ -21,7 +21,6 @@ import {
   MoreHorizontal,
   ChevronDown,
   ExternalLink,
-  Ticket,
   Compass,
   ClipboardCheck,
   Sun,
@@ -106,7 +105,6 @@ const Navbar = () => {
   const [showMore, setShowMore] = useState(false);
   const { user, logout } = useAuth();
   const pathname = usePathname();
-  const [ticketCount, setTicketCount] = useState(0);
   const [showProfileCard, setShowProfileCard] = useState(false);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -144,20 +142,6 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      const fetchCount = async () => {
-        try {
-          const res = await api.get('/api/feedback/stats/unprocessed_count');
-          if (res.data.ok) setTicketCount(res.data.count);
-        } catch (e) {}
-      };
-      fetchCount();
-      const interval = setInterval(fetchCount, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
   // Close mobile menu when route changes
   useEffect(() => {
     setIsOpen(false);
@@ -175,7 +159,6 @@ const Navbar = () => {
   ];
 
   const secondaryLinks: NavLinkItem[] = [
-    { name: '工单', path: '/tickets', icon: Ticket },
     { name: '聊天', path: '/chat', icon: MessageCircle },
     { name: '监控', path: '/monitor', icon: Activity },
     { name: '留言', path: '/messages', icon: MessageSquare },
@@ -279,11 +262,6 @@ const Navbar = () => {
                           <div className="flex items-center gap-2 flex-1">
                             <link.icon size={16} />
                             {link.name}
-                            {link.path === '/tickets' && ticketCount > 0 && (
-                              <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
-                                {ticketCount}
-                              </span>
-                            )}
                           </div>
                           {link.external && <ExternalLink size={12} className="opacity-50" />}
                         </Link>

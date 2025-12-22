@@ -102,7 +102,26 @@ const Footer = () => {
               友情链接
             </h3>
             <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
-              {/* Add your friendly links here if any */}
+              <li>
+                <a href="https://sipc.ink/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2">
+                  SIPC的个人主页
+                </a>
+              </li>
+              <li>
+                <a href="https://bd6jzu.ink/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2">
+                  BD6JZU的主页
+                </a>
+              </li>
+              <li>
+                <a href="https://lyrify.cloud/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2">
+                  lyrify
+                </a>
+              </li>
+              <li>
+                <a href="https://www.minecraft.net/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2">
+                  Minecraft
+                </a>
+              </li>
             </ul>
           </div>
         </div>
