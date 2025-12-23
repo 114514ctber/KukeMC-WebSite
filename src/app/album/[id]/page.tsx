@@ -32,7 +32,8 @@ async function getAlbum(id: string): Promise<Post | null> {
             username: authorName,
             nickname: authorInfo.nickname || authorName,
             avatar: authorInfo.avatar,
-            custom_title: authorInfo.custom_title
+            custom_title: authorInfo.custom_title,
+            level: authorInfo.level || 0
         },
         created_at: albumData.created_at,
         likes_count: albumData.likes,
