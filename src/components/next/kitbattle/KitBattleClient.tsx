@@ -9,6 +9,7 @@ import { Swords, Radar, Trophy, Skull, MessageSquare, Activity, X } from 'lucide
 
 const KitBattleClient: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'live' | 'stats'>('live');
+  const [radarKey, setRadarKey] = useState(0);
   const [killFeed, setKillFeed] = useState<WSKillEvent[]>([]);
   const [chatLog, setChatLog] = useState<WSChatEvent[]>([]);
   const [killNotification, setKillNotification] = useState<{ killer: string, victim: string, kit: string, id: number } | null>(null);
@@ -26,7 +27,9 @@ const KitBattleClient: React.FC = () => {
                     setChatLog(data.chat);
                 }
                 if (data.kills) {
-                    setKillFeed(data.kills);
+                    // Sort by timestamp descending (newest first)
+                    const sortedKills = data.kills.sort((a: any, b: any) => b.timestamp - a.timestamp);
+                    setKillFeed(sortedKills);
                 }
             }
         } catch (error) {
@@ -159,8 +162,13 @@ const KitBattleClient: React.FC = () => {
             ].map(tab => (
                 <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`relative px-5 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2 ${
+                    onClick={() => {
+                        setActiveTab(tab.id as any);
+                        if (tab.id === 'live') {
+                            setRadarKey(prev => prev + 1);
+                        }
+                    }}
+                    className={`relative px-5 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2 outline-none select-none ${
                         activeTab === tab.id 
                             ? 'text-brand-600 dark:text-white shadow-sm bg-white dark:bg-slate-700' 
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'
@@ -173,10 +181,19 @@ const KitBattleClient: React.FC = () => {
                             transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                         />
                     )}
-                    <span className={activeTab === tab.id ? 'text-brand-500 dark:text-brand-400' : 'opacity-70'}>
+                    <motion.span 
+                        className={activeTab === tab.id ? 'text-brand-500 dark:text-brand-400' : 'opacity-70'}
+                        animate={{ scale: activeTab === tab.id ? 1.1 : 1 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                    >
                         <tab.icon size={16} />
-                    </span>
-                    {tab.label}
+                    </motion.span>
+                    <motion.span
+                        animate={{ scale: activeTab === tab.id ? 1.05 : 1 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                    >
+                        {tab.label}
+                    </motion.span>
                 </button>
             ))}
           </div>
@@ -186,16 +203,20 @@ const KitBattleClient: React.FC = () => {
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
             
             {/* Left Column (Main View) */}
-            <div className="lg:col-span-8 xl:col-span-9 flex flex-col min-h-0 relative">
-                <AnimatePresence mode="wait">
+            <div className="lg:col-span-8 xl:col-span-9 flex flex-col h-full min-h-0 relative">
+                <div className="flex-1 h-full relative flex flex-col">
                     {activeTab === 'live' ? (
                         <motion.div 
-                            key="live"
-                            initial={{ opacity: 0, scale: 0.98, filter: "blur(4px)" }}
-                            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                            exit={{ opacity: 0, scale: 0.98, filter: "blur(4px)" }}
-                            transition={{ duration: 0.4, ease: "circOut" }}
-                            className="flex-1 glass-panel rounded-2xl overflow-hidden relative group flex flex-col shadow-2xl dark:shadow-none"
+                            key={`live-${radarKey}`}
+                            initial={{ opacity: 0, scale: 0.95, y: 10, filter: "blur(10px)" }}
+                            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+                            transition={{ 
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 30,
+                                mass: 0.8
+                            }}
+                            className="flex-1 h-full glass-panel rounded-2xl overflow-hidden relative group flex flex-col shadow-2xl dark:shadow-none"
                         >
                             <div className="absolute top-4 left-4 z-10 flex items-center gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur rounded-full pl-1 pr-3 py-1 border border-slate-200 dark:border-slate-800 shadow-sm">
                                 <div className="relative">
@@ -212,15 +233,20 @@ const KitBattleClient: React.FC = () => {
                     ) : (
                         <motion.div
                             key="stats"
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            className="flex-1 overflow-y-auto pr-1 custom-scrollbar"
+                            initial={{ opacity: 0, x: -50, filter: "blur(10px)" }}
+                            animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                            transition={{ 
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 30,
+                                mass: 0.8
+                            }}
+                            className="flex-1 overflow-y-auto px-4 py-2 no-scrollbar"
                         >
                             <Leaderboard />
                         </motion.div>
                     )}
-                </AnimatePresence>
+                </div>
             </div>
 
             {/* Right Column (HUD) */}

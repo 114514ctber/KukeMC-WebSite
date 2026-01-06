@@ -265,19 +265,36 @@ const Leaderboard: React.FC = () => {
           ) : (
             <motion.div
               key="list"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: {
+                  opacity: 1,
+                  transition: {
+                    staggerChildren: 0.05
+                  }
+                }
+              }}
               className="grid gap-2"
             >
               {data.length > 0 ? (
                 data.map((item, index) => (
                   <motion.div
                     key={item.name}
-                    initial={{ opacity: 0, x: -20, filter: "blur(4px)" }}
-                    animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-                    transition={{ delay: index * 0.05 }}
-                    className={`group relative flex items-center p-3 rounded-xl transition-all duration-300 border hover:shadow-md hover:scale-[1.01] ${
+                    variants={{
+                        hidden: { opacity: 0, x: -20, y: 10, filter: "blur(4px)" },
+                        visible: { 
+                            opacity: 1, 
+                            x: 0, 
+                            y: 0,
+                            filter: "blur(0px)",
+                            transition: { type: "spring", stiffness: 400, damping: 25 }
+                        }
+                    }}
+                    whileHover={{ scale: 1.02, x: 5 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`group relative flex items-center p-3 rounded-xl transition-all duration-300 border hover:shadow-md ${
                       index < 3 
                         ? 'bg-gradient-to-r from-slate-50 to-white dark:from-white/5 dark:to-transparent border-slate-200 dark:border-white/10' 
                         : 'bg-white/50 dark:bg-transparent border-slate-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:border-slate-200 dark:hover:border-white/20'
@@ -285,10 +302,18 @@ const Leaderboard: React.FC = () => {
                   >
                     {/* Rank Badge */}
                     <div className={`
-                      relative w-10 h-10 flex items-center justify-center rounded-lg font-black text-xl italic mr-4 shrink-0 font-sans border
+                      relative w-10 h-10 flex items-center justify-center rounded-lg font-black text-xl italic mr-4 shrink-0 font-sans border overflow-hidden
                       ${getRankStyle(index)}
                     `}>
-                      <span className="z-10">#{index + 1}</span>
+                        {index < 3 && (
+                            <motion.div 
+                                className="absolute inset-0 bg-white/30 skew-x-[-20deg]"
+                                initial={{ x: '-150%' }}
+                                animate={{ x: '150%' }}
+                                transition={{ repeat: Infinity, duration: 2, delay: index * 0.5, ease: "easeInOut", repeatDelay: 1 }}
+                            />
+                        )}
+                      <span className="z-10 relative">#{index + 1}</span>
                     </div>
 
                     {/* Avatar & Name */}

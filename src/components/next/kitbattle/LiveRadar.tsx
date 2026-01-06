@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { WSMessage, WSPlayer, WSProjectile, WSKillEvent, WSChatEvent, WSAttackEvent } from '@/types/kitbattle';
+import { Unlock, Search, Maximize } from 'lucide-react';
 
 const WS_URL = 'wss://api.kuke.ink/api/server/kitbattle/live/ws';
 const RECONNECT_DELAY = 3000;
@@ -16,6 +17,7 @@ interface LiveRadarProps {
 
 const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [players, setPlayers] = useState<WSPlayer[]>([]);
   const [projectiles, setProjectiles] = useState<WSProjectile[]>([]);
   const [connected, setConnected] = useState(false);
@@ -23,7 +25,20 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
   const wsRef = useRef<WebSocket | null>(null);
   const animationFrameRef = useRef<number>();
   
-  // Viewport state for auto-scaling
+  // Camera Control State
+  const [followedPlayerUuid, setFollowedPlayerUuid] = useState<string | null>(null);
+  const [isAutoFit, setIsAutoFit] = useState(true);
+  const [manualParams, setManualParams] = useState({ x: 0, z: 0, zoom: 1 });
+  const [isDragging, setIsDragging] = useState(false);
+   const dragStateRef = useRef({ startX: 0, startY: 0, startCamX: 0, startCamZ: 0 });
+ 
+   // Sync state to ref for render loop
+   const drawStateRef = useRef({ followedPlayerUuid, isAutoFit, manualParams });
+   useEffect(() => {
+       drawStateRef.current = { followedPlayerUuid, isAutoFit, manualParams };
+   }, [followedPlayerUuid, isAutoFit, manualParams]);
+
+   // Viewport state for auto-scaling
   const [camPos, setCamPos] = useState({ x: 0, z: 0 });
 
   // Smooth Interpolation State
@@ -31,6 +46,7 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
   const currentOffsetRef = useRef({ x: 0, y: 0 });
   const playersMapRef = useRef<Map<string, { x: number, z: number, yaw: number }>>(new Map());
   const projectilesMapRef = useRef<Map<number, { x: number, z: number }>>(new Map());
+  const chatBubblesRef = useRef<Array<{ name: string, message: string, expiresAt: number }>>([]);
   const attackEffectsRef = useRef<Array<{ 
     victimUuid: string,
     attackerUuid?: string,
@@ -51,6 +67,105 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
       avatarCacheRef.current.set(name, img);
       return img;
   };
+
+  // --- Interaction Handlers ---
+  const handleMouseDown = (e: React.MouseEvent) => {
+      if (!canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const currentCam = currentOffsetRef.current;
+      const currentZoom = currentScaleRef.current;
+      const width = rect.width;
+      const height = rect.height;
+
+      let clickedPlayerUuid: string | null = null;
+      
+      // Check collision with players
+      for (const p of playersRef.current) {
+          const pMap = playersMapRef.current.get(p.uuid);
+          const px = pMap ? pMap.x : p.location.x;
+          const pz = pMap ? pMap.z : p.location.z;
+          
+          const cx = (px - currentCam.x) * currentZoom + width / 2;
+          const cy = (pz - currentCam.y) * currentZoom + height / 2;
+          
+          const dist = Math.sqrt(Math.pow(x - cx, 2) + Math.pow(y - cy, 2));
+          if (dist < 20) { // 20px hit radius
+              clickedPlayerUuid = p.uuid;
+              break;
+          }
+      }
+
+      if (clickedPlayerUuid) {
+          setFollowedPlayerUuid(clickedPlayerUuid);
+      } else {
+          setIsDragging(true);
+          dragStateRef.current = {
+              startX: e.clientX,
+              startY: e.clientY,
+              startCamX: currentOffsetRef.current.x,
+              startCamZ: currentOffsetRef.current.y
+          };
+      }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+      if (isDragging) {
+          const dx = e.clientX - dragStateRef.current.startX;
+          const dy = e.clientY - dragStateRef.current.startY;
+          
+          const zoom = currentScaleRef.current;
+          // World delta = Screen delta / zoom
+          const dWorldX = dx / zoom;
+          const dWorldZ = dy / zoom;
+          
+          const newCamX = dragStateRef.current.startCamX - dWorldX;
+          const newCamZ = dragStateRef.current.startCamZ - dWorldZ;
+          
+          setManualParams(prev => ({ ...prev, x: newCamX, z: newCamZ, zoom: zoom }));
+          setIsAutoFit(false);
+          setFollowedPlayerUuid(null); // Stop following on drag
+      }
+  };
+
+  const handleMouseUp = () => {
+      setIsDragging(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+      // Prevent default is handled by native listener in useEffect
+      const zoomSensitivity = 0.001;
+      const delta = -e.deltaY * zoomSensitivity;
+      
+      let newZoom = currentScaleRef.current * (1 + delta);
+      newZoom = Math.max(0.1, Math.min(newZoom, 10)); // Clamp
+      
+      if (isAutoFit) {
+          setManualParams({
+              x: currentOffsetRef.current.x,
+              z: currentOffsetRef.current.y,
+              zoom: newZoom
+          });
+          setIsAutoFit(false);
+      } else {
+          setManualParams(prev => ({ ...prev, zoom: newZoom }));
+      }
+  };
+
+  // Prevent default scroll behavior
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
+    const preventScroll = (e: WheelEvent) => {
+        e.preventDefault();
+    };
+    
+    container.addEventListener('wheel', preventScroll, { passive: false });
+    return () => container.removeEventListener('wheel', preventScroll);
+  }, []);
 
   const killEffectsRef = useRef<Array<{ x: number, z: number, victimName: string, killerName?: string, timestamp: number }>>([]);
 
@@ -122,6 +237,13 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
 
           } else if (data.type === 'chat') {
             if (onChatRef.current) onChatRef.current(data);
+            
+            // Add chat bubble
+            chatBubblesRef.current.push({
+                name: data.player,
+                message: data.message,
+                expiresAt: Date.now() + 6000 // Show for 6 seconds
+            });
           } else if (data.type === 'attack') {
              const attack = data as WSAttackEvent;
              attackEffectsRef.current.push({
@@ -164,10 +286,9 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
     }, HEARTBEAT_INTERVAL);
 
     // Force re-layout trigger on mount to ensure canvas size is correct
+    // Removed potentially conflicting reflow logic that might interfere with initial render
     if (canvasRef.current) {
-        canvasRef.current.style.display = 'none';
-        // Force reflow
-        void canvasRef.current.offsetHeight; 
+        // Ensure display is block
         canvasRef.current.style.display = 'block';
     }
 
@@ -221,11 +342,22 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
       
       const dpr = window.devicePixelRatio || 1;
       // Use getBoundingClientRect for more accurate dimension reading
-      const rect = canvas.getBoundingClientRect();
-      const displayWidth = rect.width;
-      const displayHeight = rect.height;
+      let rect = canvas.getBoundingClientRect();
+      let displayWidth = rect.width;
+      let displayHeight = rect.height;
       
-      if (displayWidth === 0 || displayHeight === 0) return;
+      // Fallback to container dimension if canvas has no size yet (e.g. during layout transition)
+      if ((displayWidth === 0 || displayHeight === 0) && containerRef.current) {
+          const containerRect = containerRef.current.getBoundingClientRect();
+          if (containerRect.width > 0 && containerRect.height > 0) {
+              displayWidth = containerRect.width;
+              displayHeight = containerRect.height;
+          }
+      }
+      
+      // Ensure we don't set 0 dimensions which can break canvas context
+      if (displayWidth === 0) displayWidth = 1;
+      if (displayHeight === 0) displayHeight = 1;
   
       if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
           canvas.width = displayWidth * dpr;
@@ -249,66 +381,21 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
           radarSweepEnd: dark ? 'rgba(255, 255, 255, 0)' : 'rgba(2, 132, 199, 0)',
           scanText: dark ? 'rgba(6, 182, 212, 0.5)' : 'rgba(2, 132, 199, 0.5)',
           crosshair: dark ? 'rgba(239, 68, 68, 0.5)' : 'rgba(220, 38, 38, 0.5)',
+          selectionRing: dark ? '#22d3ee' : '#0284c7',
       };
   
       // Clear canvas
       ctx.clearRect(0, 0, width, height);
-  
+      
+      // Filter expired chat bubbles
+      const now = Date.now();
+      chatBubblesRef.current = chatBubblesRef.current.filter(b => b.expiresAt > now);
+      const activeBubbles = new Map(chatBubblesRef.current.map(b => [b.name, b]));
+
       const currentPlayers = playersRef.current;
       const currentProjectiles = projectilesRef.current;
   
-      if (currentPlayers.length === 0) {
-          // Draw "Scanning..."
-          ctx.fillStyle = currentColors.scanText;
-          ctx.font = '12px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('正在扫描区域...', width / 2, height / 2);
-          
-          drawGrid(ctx, width, height, 0, 0, 1, currentColors);
-          return;
-      }
-  
-      // Auto-fit Logic
-      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-      currentPlayers.forEach(p => {
-          minX = Math.min(minX, p.location.x);
-          maxX = Math.max(maxX, p.location.x);
-          minZ = Math.min(minZ, p.location.z);
-          maxZ = Math.max(maxZ, p.location.z);
-      });
-  
-      const cameraLerp = 0.05;
-      const scaleX = width / (maxX - minX + 100);
-      const scaleZ = height / (maxZ - minZ + 100);
-      const targetScale = Math.min(scaleX, scaleZ, 4); // Max zoom limit
-  
-      currentScaleRef.current += (targetScale - currentScaleRef.current) * cameraLerp;
-      const zoom = currentScaleRef.current;
-  
-      const targetCamX = (minX + maxX) / 2;
-      const targetCamZ = (minZ + maxZ) / 2;
-      
-      if (!currentOffsetRef.current) currentOffsetRef.current = { x: targetCamX, y: targetCamZ };
-  
-      const currentCamX = currentOffsetRef.current.x + (targetCamX - currentOffsetRef.current.x) * cameraLerp;
-      const currentCamZ = currentOffsetRef.current.y + (targetCamZ - currentOffsetRef.current.y) * cameraLerp;
-      
-      currentOffsetRef.current = { x: currentCamX, y: currentCamZ };
-      
-      // Throttle camPos updates to avoid excessive re-renders
-      const newCamX = Math.round(currentCamX);
-      const newCamZ = Math.round(currentCamZ);
-      setCamPos(prev => {
-          if (prev.x !== newCamX || prev.z !== newCamZ) {
-              return { x: newCamX, z: newCamZ };
-          }
-          return prev;
-      });
-  
-      // Draw Grid
-      drawGrid(ctx, width, height, currentCamX, currentCamZ, zoom, currentColors);
-  
-      // Draw Players
+      // Update Player Positions for Lerp
       currentPlayers.forEach(player => {
         const playerKey = player.uuid;
         const targetX = player.location.x;
@@ -316,22 +403,111 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
         const targetYaw = player.location.yaw || 0;
         
         let currentP = playersMapRef.current.get(playerKey);
-        
         if (!currentP) {
-          currentP = { x: targetX, z: targetZ, yaw: targetYaw };
-          playersMapRef.current.set(playerKey, currentP);
+            currentP = { x: targetX, z: targetZ, yaw: targetYaw };
+            playersMapRef.current.set(playerKey, currentP);
         } else {
-          const playerLerp = 0.15;
-          currentP.x += (targetX - currentP.x) * playerLerp;
-          currentP.z += (targetZ - currentP.z) * playerLerp;
-          
-          let diffYaw = targetYaw - currentP.yaw;
-          while (diffYaw > 180) diffYaw -= 360;
-          while (diffYaw < -180) diffYaw += 360;
-          currentP.yaw += diffYaw * playerLerp;
-          
-          playersMapRef.current.set(playerKey, currentP);
+            const playerLerp = 0.15;
+            currentP.x += (targetX - currentP.x) * playerLerp;
+            currentP.z += (targetZ - currentP.z) * playerLerp;
+            
+            let diffYaw = targetYaw - currentP.yaw;
+            while (diffYaw > 180) diffYaw -= 360;
+            while (diffYaw < -180) diffYaw += 360;
+            currentP.yaw += diffYaw * playerLerp;
+            
+            playersMapRef.current.set(playerKey, currentP);
         }
+      });
+
+      // --- Camera Logic ---
+      // Read latest state from ref to avoid stale closures in RAF loop
+      const { followedPlayerUuid, isAutoFit, manualParams } = drawStateRef.current;
+
+      let targetCamX = 0;
+      let targetCamZ = 0;
+      let targetScale = 1;
+
+      // 1. Determine Target State
+      if (followedPlayerUuid) {
+          // FOLLOW MODE
+          const pMap = playersMapRef.current.get(followedPlayerUuid);
+          if (pMap) {
+              targetCamX = pMap.x;
+              targetCamZ = pMap.z;
+              // If auto-fit is ON, we use a preset "Zoomed In" level for following
+              // If auto-fit is OFF, we use the manual zoom level
+              targetScale = isAutoFit ? 2.0 : manualParams.zoom;
+          } else {
+              // Player lost, revert to previous state or center
+              setFollowedPlayerUuid(null);
+          }
+      } 
+      
+      if (!followedPlayerUuid) {
+          if (isAutoFit && currentPlayers.length > 0) {
+              // AUTO-FIT MODE (All Players)
+              let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+              currentPlayers.forEach(p => {
+                  minX = Math.min(minX, p.location.x);
+                  maxX = Math.max(maxX, p.location.x);
+                  minZ = Math.min(minZ, p.location.z);
+                  maxZ = Math.max(maxZ, p.location.z);
+              });
+              
+              const scaleX = width / (maxX - minX + 100);
+              const scaleZ = height / (maxZ - minZ + 100);
+              // Multiply by 1.5 to zoom in more by default
+              targetScale = Math.min(scaleX, scaleZ, 4) * 1.5; 
+              targetCamX = (minX + maxX) / 2;
+              targetCamZ = (minZ + maxZ) / 2;
+          } else if (isAutoFit && currentPlayers.length === 0) {
+              // Scanning / Empty
+              targetScale = 1;
+              targetCamX = 0;
+              targetCamZ = 0;
+          } else {
+              // MANUAL MODE
+              targetCamX = manualParams.x;
+              targetCamZ = manualParams.z;
+              targetScale = manualParams.zoom;
+          }
+      }
+
+      // 2. Interpolate Camera
+      const cameraLerp = 0.1; // Faster response
+      currentScaleRef.current += (targetScale - currentScaleRef.current) * cameraLerp;
+      const zoom = currentScaleRef.current;
+      
+      if (!currentOffsetRef.current) currentOffsetRef.current = { x: targetCamX, y: targetCamZ };
+      
+      const currentCamX = currentOffsetRef.current.x + (targetCamX - currentOffsetRef.current.x) * cameraLerp;
+      const currentCamZ = currentOffsetRef.current.y + (targetCamZ - currentOffsetRef.current.y) * cameraLerp;
+      currentOffsetRef.current = { x: currentCamX, y: currentCamZ };
+
+      // Update State for HUD (throttled)
+      const newCamX = Math.round(currentCamX);
+      const newCamZ = Math.round(currentCamZ);
+      setCamPos(prev => (prev.x !== newCamX || prev.z !== newCamZ) ? { x: newCamX, z: newCamZ } : prev);
+
+      if (currentPlayers.length === 0 && !manualParams) {
+          // Draw "Scanning..."
+          ctx.fillStyle = currentColors.scanText;
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('正在扫描区域...', width / 2, height / 2);
+          drawGrid(ctx, width, height, 0, 0, 1, currentColors);
+          return;
+      }
+  
+      // Draw Grid
+      drawGrid(ctx, width, height, currentCamX, currentCamZ, zoom, currentColors);
+  
+      // Draw Players
+      currentPlayers.forEach(player => {
+        const playerKey = player.uuid;
+        const currentP = playersMapRef.current.get(playerKey);
+        if (!currentP) return;
         
         const cx = (currentP.x - currentCamX) * zoom + width / 2;
         const cy = (currentP.z - currentCamZ) * zoom + height / 2;
@@ -348,6 +524,17 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
         ctx.fillStyle = gradient;
         ctx.fill();
   
+        // Selection Ring (if followed)
+        if (followedPlayerUuid === player.uuid) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+            ctx.strokeStyle = currentColors.selectionRing;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
         // Avatar with Ring
         const avatar = getAvatar(player.name);
         const healthPct = Math.max(0, Math.min(1, player.health / player.max_health));
@@ -385,21 +572,68 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
         }
   
         // Name Tag
-        ctx.fillStyle = currentColors.text;
-        ctx.font = 'bold 10px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.shadowColor = dark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
-        ctx.shadowBlur = 4;
-        ctx.fillText(player.name, cx, cy - 16);
+      ctx.fillStyle = currentColors.text;
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = dark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(player.name, cx, cy - 16);
+      
+      // Kit Tag
+      ctx.fillStyle = currentColors.textSecondary;
+      ctx.font = '9px sans-serif';
+      ctx.shadowBlur = 0;
+      ctx.fillText(`[${player.kit}]`, cx, cy - 26);
+    });
+
+    // Draw Chat Bubbles (After players loop to ensure z-index on top)
+    currentPlayers.forEach(player => {
+        const bubble = activeBubbles.get(player.name);
+        if (!bubble) return;
+
+        const playerKey = player.uuid;
+        const currentP = playersMapRef.current.get(playerKey);
+        if (!currentP) return;
         
-        // Kit Tag
-        ctx.fillStyle = currentColors.textSecondary;
-        ctx.font = '9px sans-serif';
-        ctx.shadowBlur = 0;
-        ctx.fillText(`[${player.kit}]`, cx, cy - 26);
-      });
-  
-      // Draw Projectiles
+        const cx = (currentP.x - currentCamX) * zoom + width / 2;
+        const cy = (currentP.z - currentCamZ) * zoom + height / 2;
+
+        ctx.save();
+        ctx.font = '12px sans-serif';
+        const textMetrics = ctx.measureText(bubble.message);
+        const textWidth = textMetrics.width;
+        const padding = 8;
+        const bubbleW = textWidth + padding * 2;
+        const bubbleH = 24;
+        const bubbleX = cx - bubbleW / 2;
+        const bubbleY = cy - 50;
+
+        // Bubble Background
+        ctx.beginPath();
+        ctx.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 6);
+        ctx.fillStyle = dark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.9)';
+        ctx.fill();
+        ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Bubble Tail
+        ctx.beginPath();
+        ctx.moveTo(cx, bubbleY + bubbleH);
+        ctx.lineTo(cx - 5, bubbleY + bubbleH);
+        ctx.lineTo(cx, bubbleY + bubbleH + 5);
+        ctx.lineTo(cx + 5, bubbleY + bubbleH);
+        ctx.fill();
+        
+        // Text
+        ctx.fillStyle = currentColors.text;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(bubble.message, cx, bubbleY + bubbleH / 2);
+        ctx.restore();
+    });
+
+    // Draw Projectiles
       currentProjectiles.forEach(proj => {
           const targetX = proj.location.x;
           const targetZ = proj.location.z;
@@ -458,7 +692,6 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
       }
   
       // Draw Attack Effects
-      const now = Date.now();
       for (let i = attackEffectsRef.current.length - 1; i >= 0; i--) {
           const effect = attackEffectsRef.current[i];
           const age = now - effect.timestamp;
@@ -548,7 +781,7 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
   const drawGrid = (ctx: CanvasRenderingContext2D, w: number, h: number, camX: number, camZ: number, zoom: number, colors: any) => {
     ctx.strokeStyle = colors.grid;
     ctx.lineWidth = 1;
-    const step = 50;
+    const step = 20; // Smaller grid size
     
     const worldLeft = camX - (w / 2) / zoom;
     const worldRight = camX + (w / 2) / zoom;
@@ -595,33 +828,91 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
 
     // Add ResizeObserver to handle layout changes (e.g. tab switching)
     const resizeObserver = new ResizeObserver(() => {
-        if (canvasRef.current) {
-            const rect = canvasRef.current.getBoundingClientRect();
+        if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
             if (rect.width > 0 && rect.height > 0) {
+                // Resize canvas to match container immediately
+                if (canvasRef.current) {
+                    canvasRef.current.width = rect.width * (window.devicePixelRatio || 1);
+                    canvasRef.current.height = rect.height * (window.devicePixelRatio || 1);
+                }
                 draw();
             }
         }
     });
 
-    if (canvasRef.current?.parentElement) {
-        resizeObserver.observe(canvasRef.current.parentElement);
+    if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
     }
+
+    // Fix: Force redraw after animation transition
+    // When switching tabs, Framer Motion animation might cause initial dimensions to be 0 or unstable.
+    // We force a few redraws to ensure the canvas catches up with the final layout.
+    const timers: NodeJS.Timeout[] = [];
+    [100, 300, 500, 800].forEach(delay => {
+        timers.push(setTimeout(() => {
+             if (containerRef.current) {
+                 const rect = containerRef.current.getBoundingClientRect();
+                 if (rect.width > 0 && rect.height > 0) {
+                     draw();
+                 }
+             }
+        }, delay));
+    });
 
     return () => {
         cancelAnimationFrame(frameId);
         resizeObserver.disconnect();
+        timers.forEach(t => clearTimeout(t));
     };
   }, [draw]);
 
   return (
-    <div className="relative w-full h-full min-h-[600px] bg-slate-50 dark:bg-slate-950/80 overflow-hidden transition-colors duration-300">
+    <div 
+        ref={containerRef}
+        className="relative w-full h-full min-h-[600px] bg-slate-50 dark:bg-slate-950/80 overflow-hidden transition-colors duration-300 select-none group"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+    >
       <canvas 
         ref={canvasRef} 
-        className="w-full h-full block"
+        className={`absolute inset-0 w-full h-full block ${isDragging ? 'cursor-grabbing' : 'cursor-crosshair'}`}
       />
       
+      {/* Controls Overlay (Bottom Right) */}
+      <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-none z-10">
+          <div className="flex items-center gap-2 pointer-events-auto">
+             {followedPlayerUuid && (
+                 <button
+                    onClick={() => setFollowedPlayerUuid(null)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500 text-white shadow-sm hover:bg-red-600 transition-all"
+                 >
+                     <Unlock size={14} />
+                     <span className="text-xs font-bold">停止跟随</span>
+                 </button>
+             )}
+             
+             <button
+                onClick={() => {
+                    setIsAutoFit(true);
+                    setFollowedPlayerUuid(null);
+                }}
+                className={`p-2 rounded-lg backdrop-blur border shadow-sm transition-all flex items-center gap-2 ${isAutoFit ? 'bg-brand-500 text-white border-brand-600' : 'bg-white/80 dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                title="自动跟随/缩放"
+             >
+                 {isAutoFit ? <Maximize size={18} /> : <Search size={18} />}
+                 <span className="text-xs font-bold hidden group-hover:block transition-all">
+                    {isAutoFit ? '自动视角' : '手动视角'}
+                 </span>
+             </button>
+          </div>
+      </div>
+
       {/* HUD Overlay */}
-      <div className="absolute top-4 right-4 flex flex-col items-end gap-2 pointer-events-none">
+      <div className="absolute top-4 right-4 flex flex-col items-end gap-2 pointer-events-none z-10">
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-cyan-500/30 px-3 py-1.5 rounded-lg flex flex-col items-end shadow-sm">
               <span className="text-[10px] text-slate-500 dark:text-cyan-400 font-sans tracking-widest uppercase">地图坐标</span>
               <span className="text-slate-900 dark:text-white font-sans font-bold">X: {camPos.x} Z: {camPos.z}</span>
@@ -633,7 +924,7 @@ const LiveRadar: React.FC<LiveRadarProps> = ({ onKillFeed, onChat }) => {
       </div>
 
       {/* Connection Status */}
-      <div className="absolute bottom-4 left-4 pointer-events-none">
+      <div className="absolute bottom-4 left-4 pointer-events-none z-10">
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm ${connected ? 'bg-green-50/80 dark:bg-green-500/10 border-green-200 dark:border-green-500/30' : 'bg-red-50/80 dark:bg-red-500/10 border-red-200 dark:border-red-500/30'}`}>
               <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
               <span className={`text-xs font-sans font-bold ${connected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
