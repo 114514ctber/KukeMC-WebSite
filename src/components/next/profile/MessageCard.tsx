@@ -7,7 +7,7 @@ import {
   Heart, Reply, Trash2, X, Send, Loader2
 } from 'lucide-react';
 import clsx from 'clsx';
-import MentionInput from '@/components/MentionInput';
+import MentionInput from '@/components/next/MentionInput';
 import LevelBadge from '@/components/LevelBadge';
 
 interface MessageCardProps {

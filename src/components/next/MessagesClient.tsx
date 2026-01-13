@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import api from '@/utils/api';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
-import MentionInput from '@/components/MentionInput';
+import MentionInput from '@/components/next/MentionInput';
 import MarkdownViewer from '@/components/MarkdownViewer';
 import { useToast } from '@/context/ToastContext';
 import { useConfirm } from '@/context/ConfirmContext';
