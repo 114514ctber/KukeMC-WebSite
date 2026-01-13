@@ -9,7 +9,7 @@ import {
   Target, Flame, Map, Users, ChevronDown, Star, Crown, Hash, X, LogIn, Link as LinkIcon, Check, Image as ImageIcon
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
 
 // --- Visual Components ---

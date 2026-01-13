@@ -30,7 +30,7 @@ const ProposalDetailClient = ({ initialId }: { initialId: number }) => {
   const [error, setError] = useState<string | null>(null);
 
   // Voting state
-  const [voteType, setVoteType] = useState<'agree' | 'disagree' | null>(null);
+  const [voteType, setVoteType] = useState<'agree' | 'disagree' | 'neutral' | null>(null);
   const [reason, setReason] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
