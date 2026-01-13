@@ -2,7 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['cravatar.eu', 'kuke.ink', 'api.kuke.ink', 'q1.qlogo.cn'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -15,9 +14,6 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   transpilePackages: ['tiptap-markdown'],
 };

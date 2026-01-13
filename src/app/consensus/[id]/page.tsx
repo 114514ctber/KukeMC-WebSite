@@ -42,8 +42,9 @@ export async function generateStaticParams() {
   return [];
 }
 
-export default async function ProposalPage({ params }: { params: { id: string } }) {
-  const proposal = await getProposal(params.id);
+export default async function ProposalPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const proposal = await getProposal(id);
 
   if (!proposal) {
     notFound();
@@ -52,5 +53,5 @@ export default async function ProposalPage({ params }: { params: { id: string } 
   // We pass ID to client component to re-fetch and handle interactions
   // Or we could pass initial data. But let's stick to client fetch for consistency with original
   // actually passing initialId is safer as client component fetches fresh data with auth
-  return <ProposalDetailClient initialId={Number(params.id)} />;
+  return <ProposalDetailClient initialId={Number(id)} />;
 }

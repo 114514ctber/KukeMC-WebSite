@@ -5,6 +5,11 @@ export interface Author {
   custom_title?: string;
   is_following?: boolean;
   level?: number;
+  verification?: {
+    is_verified: boolean;
+    type: string;
+    link: string;
+  };
 }
 
 export interface Post {

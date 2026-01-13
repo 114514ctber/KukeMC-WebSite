@@ -8,6 +8,44 @@ import { getNotifications, markAsRead, markAllAsRead, Notification } from '@/ser
 import clsx from 'clsx';
 import { useAuth } from '@/context/AuthContext';
 
+const NotificationContent = ({ n, getIcon, getActionText }: { n: Notification, getIcon: any, getActionText: any }) => (
+    <>
+    <div className="mt-0.5 flex-shrink-0 relative">
+        {n.sender_id === 'system' ? (
+            <div className="w-8 h-8 rounded-lg shadow-sm bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+            <Bell size={14} className="text-slate-500" />
+            </div>
+        ) : (
+            <img 
+            src={`https://cravatar.eu/helmavatar/${n.sender_id}/32.png`} 
+            className="w-8 h-8 rounded-lg shadow-sm"
+            alt={n.sender_id}
+            />
+        )}
+        <div className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-[2px] shadow-sm ring-1 ring-white dark:ring-slate-900">
+            {getIcon(n.type)}
+        </div>
+    </div>
+    <div className="flex-1 min-w-0">
+        <p className="text-xs text-slate-800 dark:text-slate-200 font-medium truncate">
+        {n.title ? (
+            <span className="font-bold">{n.title}</span>
+        ) : (
+            <>
+                <span className="font-bold">{n.sender_id}</span>
+                <span className="font-normal ml-1 text-slate-500 dark:text-slate-400">{getActionText(n.type)}</span>
+            </>
+        )}
+        </p>
+        {(n.content || n.content_preview) && (
+        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+            {n.content || n.content_preview}
+        </p>
+        )}
+    </div>
+    </>
+);
+
 export const NotificationList = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -213,44 +251,15 @@ export const NotificationList = () => {
                       )}
                       onClick={() => handleRead(n.id)}
                     >
-                      <Link href={getLink(n)} className="flex gap-2.5 items-start">
-                        <div className="mt-0.5 flex-shrink-0 relative">
-                           {n.sender_id === 'system' ? (
-                             <div className="w-8 h-8 rounded-lg shadow-sm bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                               <Bell size={14} className="text-slate-500" />
-                             </div>
-                           ) : (
-                             <img 
-                               src={`https://cravatar.eu/helmavatar/${n.sender_id}/32.png`} 
-                               className="w-8 h-8 rounded-lg shadow-sm"
-                               alt={n.sender_id}
-                             />
-                           )}
-                           <div className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-[2px] shadow-sm ring-1 ring-white dark:ring-slate-900">
-                             {getIcon(n.type)}
-                           </div>
+                      {getLink(n) !== '#' ? (
+                        <Link href={getLink(n)} className="flex gap-2.5 items-start">
+                           <NotificationContent n={n} getIcon={getIcon} getActionText={getActionText} />
+                        </Link>
+                      ) : (
+                        <div className="flex gap-2.5 items-start">
+                           <NotificationContent n={n} getIcon={getIcon} getActionText={getActionText} />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-slate-800 dark:text-slate-200 font-medium truncate">
-                            {n.title ? (
-                                <span className="font-bold">{n.title}</span>
-                            ) : (
-                                <>
-                                    <span className="font-bold">{n.sender_id}</span>
-                                    <span className="font-normal ml-1 text-slate-500 dark:text-slate-400">{getActionText(n.type)}</span>
-                                </>
-                            )}
-                          </p>
-                          {(n.content || n.content_preview) && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
-                              {n.content || n.content_preview}
-                            </p>
-                          )}
-                          <p className="text-[10px] text-slate-400 mt-1">
-                            {new Date(n.created_at).toLocaleString()}
-                          </p>
-                        </div>
-                      </Link>
+                      )}
                       {!n.is_read && (
                         <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-emerald-500 rounded-full" />
                       )}

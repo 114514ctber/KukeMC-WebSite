@@ -1,12 +1,33 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '@/utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Flame, Coins, Star, Skull, BarChart2 } from 'lucide-react';
+import { Swords, Flame, Coins, Star, Skull, BarChart2, Search, Calculator, User as UserIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
-type LeaderboardType = 'kills' | 'deaths' | 'exp' | 'coins';
+type LeaderboardType = 'kills' | 'deaths' | 'exp' | 'coins' | 'kd';
 type PeriodType = 'total' | 'weekly' | 'monthly';
+
+interface PlayerData {
+    name: string;
+    value: number;
+    rank: string;
+    exp: number;
+    kills: number;
+    deaths: number;
+    coins: number;
+    kd: number;
+    position?: number;
+}
+
+interface PaginationData {
+    total: number;
+    page: number;
+    limit: number;
+    total_pages: number;
+}
 
 const minecraftColorClasses: Record<string, string> = {
   '0': 'text-black dark:text-black',
@@ -114,26 +135,131 @@ const getExpTierStyle = (exp: number) => {
 };
 
 const Leaderboard: React.FC = () => {
+  const router = useRouter();
+  const { user } = useAuth();
   const [type, setType] = useState<LeaderboardType>('kills');
   const [period, setPeriod] = useState<PeriodType>('total');
-  const [data, setData] = useState<{ name: string; value: number; rank: string; exp: number }[]>([]);
+  const [data, setData] = useState<PlayerData[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selfData, setSelfData] = useState<PlayerData | null>(null);
+  const observerTarget = useRef(null);
 
+  // Debounce search
   useEffect(() => {
-    fetchLeaderboard();
+    const timer = setTimeout(() => {
+        setDebouncedSearch(search);
+        setPage(1);
+        setData([]);
+        setHasMore(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Reset when type/period changes
+  useEffect(() => {
+    setPage(1);
+    setData([]);
+    setHasMore(true);
   }, [type, period]);
 
-  const fetchLeaderboard = async () => {
+  // Fetch Data
+  const fetchLeaderboard = useCallback(async (pageNum: number) => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/server/kitbattle/leaderboard/${type}?limit=10&period=${period}`);
-      setData(res.data);
+      const query = new URLSearchParams({
+          limit: '20',
+          period,
+          page: pageNum.toString(),
+      });
+      if (debouncedSearch) query.append('search', debouncedSearch);
+      
+      const res = await api.get(`/api/server/kitbattle/leaderboard/${type}?${query.toString()}`);
+      
+      let newData: PlayerData[] = [];
+      let totalPages = 1;
+
+      if (Array.isArray(res.data)) {
+          newData = res.data as any;
+      } else {
+          newData = res.data.data;
+          totalPages = res.data.pagination.total_pages;
+      }
+
+      if (pageNum === 1) {
+          setData(newData);
+      } else {
+          setData(prev => {
+              // Avoid duplicates just in case
+              const existingNames = new Set(prev.map(p => p.name));
+              const uniqueNewData = newData.filter(p => !existingNames.has(p.name));
+              return [...prev, ...uniqueNewData];
+          });
+      }
+      
+      setHasMore(pageNum < totalPages);
     } catch (error) {
       console.error('Failed to fetch leaderboard', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [type, period, debouncedSearch]);
+
+  // Initial load and page changes
+  useEffect(() => {
+    fetchLeaderboard(page);
+  }, [page, fetchLeaderboard]);
+
+  // Fetch Self Rank
+  useEffect(() => {
+    if (user?.username) {
+        const fetchSelf = async () => {
+            try {
+                const query = new URLSearchParams({
+                    limit: '1',
+                    period,
+                    search: user.username
+                });
+                const res = await api.get(`/api/server/kitbattle/leaderboard/${type}?${query.toString()}`);
+                const list = res.data.data || res.data;
+                // Since we searched for exact username (mostly), the first result should be it.
+                // But search is partial match, so check name.
+                const me = list.find((p: PlayerData) => p.name.toLowerCase() === user.username.toLowerCase());
+                setSelfData(me || null);
+            } catch (e) {
+                console.error("Failed to fetch self rank", e);
+            }
+        };
+        fetchSelf();
+    } else {
+        setSelfData(null);
+    }
+  }, [user, type, period]);
+
+  // Intersection Observer for Infinite Scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          setPage(prev => prev + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [hasMore, loading]);
 
   const tabs: { id: LeaderboardType; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
     { id: 'kills', label: '击杀数', icon: <Swords size={14} />, color: 'text-red-500 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-500/10' },
@@ -217,6 +343,20 @@ const Leaderboard: React.FC = () => {
 
           <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden md:block" />
 
+          {/* Search Bar */}
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 group-focus-within:text-brand-500 transition-colors" />
+            <input 
+                type="text" 
+                placeholder="搜索玩家..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-32 focus:w-48 transition-all duration-300 pl-9 pr-3 py-1.5 text-xs font-bold rounded-lg bg-slate-100 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-slate-800 focus:border-brand-500/50 outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+            />
+          </div>
+
+          <div className="w-px h-8 bg-slate-200 dark:bg-white/10 hidden md:block" />
+
           {/* Type Tabs */}
           <div className="flex gap-1">
             {tabs.map((tab) => (
@@ -243,17 +383,52 @@ const Leaderboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Self Rank Display */}
+      <AnimatePresence>
+        {selfData && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            onClick={() => router.push(`/player/${selfData.name}`)}
+            className="glass-panel p-4 rounded-xl border border-brand-200 dark:border-brand-500/30 bg-brand-50/50 dark:bg-brand-500/5 flex items-center justify-between cursor-pointer hover:bg-brand-100/50 dark:hover:bg-brand-500/10 transition-colors"
+          >
+             <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="relative w-12 h-12 rounded-xl overflow-hidden border-2 border-brand-100 dark:border-brand-500/30 shadow-sm shrink-0">
+                        <img 
+                           src={`https://minotar.net/helm/${selfData.name}/100.png`}
+                           alt={selfData.name}
+                           className="w-full h-full object-cover"
+                        />
+                    </div>
+                    <div>
+                        <div className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-0.5">当前排名</div>
+                        <div className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>#{selfData.position || selfData.rank}</span>
+                            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">({selfData.name})</span>
+                        </div>
+                    </div>
+                </div>
+             </div>
+             
+             <div className="text-right">
+                <div className="text-2xl font-black text-brand-600 dark:text-brand-400 tracking-tighter">
+                    {type === 'kd' ? selfData.value.toFixed(2) : selfData.value.toLocaleString()}
+                </div>
+                <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    {tabs.find(t => t.id === type)?.label}
+                </div>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Content */}
       <div className="relative min-h-[400px]">
-        <AnimatePresence mode="wait">
-          {loading ? (
-            <motion.div
-              key="loader"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center"
-            >
+        {/* Initial Loading State */}
+        {loading && page === 1 && data.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center z-20">
               <div className="flex flex-col items-center gap-4">
                 <div className="relative">
                     <div className="w-12 h-12 border-2 border-brand-200 dark:border-cyan-500/30 border-t-brand-500 dark:border-t-cyan-500 rounded-full animate-spin" />
@@ -261,40 +436,24 @@ const Leaderboard: React.FC = () => {
                 </div>
                 <span className="text-xs text-brand-500 dark:text-cyan-400 font-sans animate-pulse tracking-widest">正在加载数据...</span>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="list"
-              initial="hidden"
-              animate="visible"
-              variants={{
-                hidden: { opacity: 0 },
-                visible: {
-                  opacity: 1,
-                  transition: {
-                    staggerChildren: 0.05
-                  }
-                }
-              }}
-              className="grid gap-2"
-            >
-              {data.length > 0 ? (
-                data.map((item, index) => (
+            </div>
+        )}
+
+        <motion.div
+            layout
+            className="grid gap-2 pb-10"
+        >
+            <AnimatePresence mode="popLayout">
+              {data.map((item, index) => (
                   <motion.div
-                    key={item.name}
-                    variants={{
-                        hidden: { opacity: 0, x: -20, y: 10, filter: "blur(4px)" },
-                        visible: { 
-                            opacity: 1, 
-                            x: 0, 
-                            y: 0,
-                            filter: "blur(0px)",
-                            transition: { type: "spring", stiffness: 400, damping: 25 }
-                        }
-                    }}
-                    whileHover={{ scale: 1.02, x: 5 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`group relative flex items-center p-3 rounded-xl transition-all duration-300 border hover:shadow-md ${
+                    key={`${item.name}-${index}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    whileHover={{ scale: 1.01, x: 2 }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={() => router.push(`/kitbattle/player/${item.name}`)}
+                    className={`group relative flex items-center p-3 rounded-xl transition-all duration-300 border hover:shadow-md cursor-pointer ${
                       index < 3 
                         ? 'bg-gradient-to-r from-slate-50 to-white dark:from-white/5 dark:to-transparent border-slate-200 dark:border-white/10' 
                         : 'bg-white/50 dark:bg-transparent border-slate-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:border-slate-200 dark:hover:border-white/20'
@@ -310,51 +469,41 @@ const Leaderboard: React.FC = () => {
                                 className="absolute inset-0 bg-white/30 skew-x-[-20deg]"
                                 initial={{ x: '-150%' }}
                                 animate={{ x: '150%' }}
-                                transition={{ repeat: Infinity, duration: 2, delay: index * 0.5, ease: "easeInOut", repeatDelay: 1 }}
+                                transition={{ repeat: Infinity, duration: 1.5, repeatDelay: 3 + index }}
                             />
                         )}
-                      <span className="z-10 relative">#{index + 1}</span>
+                        <span className="relative z-10 drop-shadow-sm">
+                            {item.position || (index + 1)}
+                        </span>
                     </div>
 
                     {/* Avatar & Name */}
-                    <div className="flex-1 flex items-center gap-4 min-w-0">
-                      <div className="relative">
-                        <img 
-                          src={`https://cravatar.eu/helmavatar/${item.name}/48.png`} 
-                          alt={item.name} 
-                          className={`w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-800 object-cover ${
-                            index < 3 ? 'ring-2 ring-white dark:ring-white/10 shadow-lg' : ''
-                          }`}
-                          loading="lazy"
-                        />
-                         {/* Corner accents */}
-                        <div className="absolute -top-0.5 -left-0.5 w-2 h-2 border-t border-l border-slate-400 dark:border-white/50 rounded-tl-sm opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 border-b border-r border-slate-400 dark:border-white/50 rounded-br-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 shrink-0 group-hover:scale-105 transition-transform duration-300">
+                         <img 
+                            src={`https://minotar.net/helm/${item.name}/100.png`}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                         />
                       </div>
-                      
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className={`font-bold text-base truncate ${
-                            index === 0 ? 'text-yellow-600 dark:text-yellow-400' :
-                            index === 1 ? 'text-slate-600 dark:text-slate-300' :
-                            index === 2 ? 'text-orange-600 dark:text-orange-400' :
-                            'text-slate-700 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200'
-                          }`}>
-                            {item.name}
-                          </h3>
-                          {item.rank && (() => {
-                            const style = getExpTierStyle(item.exp || 0);
-                            return (
-                              <span 
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all duration-300 ${style.bg} ${style.border} ${style.shadow}`}
-                              >
-                                <span style={{ filter: 'saturate(0.6)' }}>
-                                  {renderMinecraftText(item.rank)}
-                                </span>
-                              </span>
-                            );
-                          })()}
+                            <span className="font-bold text-slate-700 dark:text-slate-200 truncate group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors">
+                                {item.name}
+                            </span>
+                            {/* Exp Tier Badge */}
+                            <div className={`
+                              px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border shadow-sm
+                              ${getExpTierStyle(item.exp).bg} ${getExpTierStyle(item.exp).border} ${getExpTierStyle(item.exp).shadow}
+                              text-slate-600 dark:text-slate-300
+                            `}>
+                              LV.{Math.floor(Math.sqrt(item.exp / 100)) + 1}
+                            </div>
                         </div>
+                         <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+                             KD: {item.kd.toFixed(2)}
+                         </div>
                       </div>
                     </div>
 
@@ -363,7 +512,7 @@ const Leaderboard: React.FC = () => {
                       <div className={`text-xl font-black font-sans tracking-tighter ${
                         tabs.find(t => t.id === type)?.color || 'text-slate-900 dark:text-white'
                       } drop-shadow-sm`}>
-                        {item.value.toLocaleString()}
+                        {type === 'kd' ? item.value.toFixed(2) : item.value.toLocaleString()}
                       </div>
                       <div className="text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
                         {tabs.find(t => t.id === type)?.label}
@@ -374,15 +523,31 @@ const Leaderboard: React.FC = () => {
                     <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/40 dark:via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none mix-blend-overlay" />
                   </motion.div>
                 ))
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-600">
-                  <div className="text-4xl mb-2 opacity-50">📂</div>
-                  <p className="font-sans text-xs uppercase tracking-widest">暂无排名数据</p>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+              }
+            </AnimatePresence>
+            
+            {/* Loading More Indicator / Observer Target */}
+            <div ref={observerTarget} className="h-20 flex items-center justify-center w-full">
+                {loading && page > 1 && (
+                    <div className="flex items-center gap-2 text-slate-400 dark:text-slate-600">
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-bold uppercase tracking-widest">加载更多...</span>
+                    </div>
+                )}
+                {!hasMore && data.length > 0 && (
+                    <span className="text-xs text-slate-300 dark:text-slate-700 font-bold uppercase tracking-widest">
+                        - 到底了 -
+                    </span>
+                )}
+            </div>
+        </motion.div>
+
+        {!loading && data.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-600">
+                <div className="text-4xl mb-2 opacity-50">📂</div>
+                <p className="font-sans text-xs uppercase tracking-widest">暂无排名数据</p>
+            </div>
+        )}
       </div>
     </div>
   );

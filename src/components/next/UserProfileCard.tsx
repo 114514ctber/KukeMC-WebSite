@@ -11,7 +11,8 @@ import {
   Shield,
   FileText,
   MessageCircle,
-  Settings
+  Settings,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getFollowStats } from '@/services/follow';
@@ -27,6 +28,7 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
   const { user, logout } = useAuth();
   const [stats, setStats] = useState({ followers: 0, following: 0 });
   const [levelInfo, setLevelInfo] = useState<{ level: number; current_xp: number; next_level_xp: number } | null>(null);
+  const [verificationInfo, setVerificationInfo] = useState<{ is_verified: boolean; type: string; link: string } | null>(null);
 
   useEffect(() => {
     if (isOpen && user) {
@@ -41,6 +43,7 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
             following: followData.following_count
           });
           setLevelInfo(playerDetails.data.level_info || null);
+          setVerificationInfo(playerDetails.data.verification || null);
         } catch (error) {
           console.error('Failed to fetch user data:', error);
         }
@@ -48,6 +51,16 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
       fetchData();
     }
   }, [isOpen, user]);
+
+  const getPlatformLabel = (type: string) => {
+    const mapping: Record<string, string> = {
+      bilibili: "Bilibili UP主",
+      douyin: "抖音主播",
+      kuaishou: "快手主播",
+      xiaohongshu: "小红书博主"
+    };
+    return mapping[type] || type;
+  };
 
   if (!user) return null;
 
@@ -184,6 +197,11 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
                             alt={user.username}
                             className="w-20 h-20 rounded-full border-[4px] border-white dark:border-slate-900 relative z-10 bg-white dark:bg-slate-800 transition-transform duration-300 group-hover:scale-105 shadow-lg"
                         />
+                        {verificationInfo?.is_verified && (
+                          <div className="absolute bottom-0.5 right-0.5 z-20 bg-yellow-400 rounded-full p-0.5 border-2 border-white dark:border-slate-900 shadow-sm flex items-center justify-center scale-90" title={`认证: ${getPlatformLabel(verificationInfo.type)}`}>
+                              <Zap className="w-3 h-3 text-white fill-current" />
+                          </div>
+                        )}
                     </Link>
                 </motion.div>
               </div>
@@ -196,6 +214,14 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
                     </span>
                     <LevelBadge level={levelInfo?.level} size="sm" />
                 </Link>
+                {verificationInfo?.is_verified && (
+                  <div className="mt-1 flex justify-center">
+                    <a href={verificationInfo.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-[10px] font-medium text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors">
+                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
+                      {getPlatformLabel(verificationInfo.type)}
+                    </a>
+                  </div>
+                )}
                 
                 {/* 社交数据 - 增加交互动效 */}
                 <div className="flex justify-center items-center gap-4 mt-2 text-sm">
@@ -241,6 +267,7 @@ export const UserProfileCard = ({ isOpen, onClose }: UserProfileCardProps) => {
                 {[
                   { to: `/player/${user.username}`, icon: UserIcon, label: '个人中心' },
                   { to: '/dashboard', icon: LayoutDashboard, label: '任务中心' },
+                  { to: '/verification', icon: Shield, label: '认证中心' },
                   { to: '/chat', icon: MessageCircle, label: '在线聊天' },
                   { to: '/tickets', icon: FileText, label: '我的工单' },
                   { to: '/settings', icon: Settings, label: '设置' }

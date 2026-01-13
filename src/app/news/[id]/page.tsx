@@ -52,8 +52,9 @@ export async function generateStaticParams() {
   return [];
 }
 
-export default async function NewsPage({ params }: { params: { id: string } }) {
-  const news = await getNews(params.id);
+export default async function NewsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const news = await getNews(id);
 
   if (!news) {
     notFound();

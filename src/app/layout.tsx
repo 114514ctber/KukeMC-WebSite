@@ -72,32 +72,6 @@ export default function RootLayout({
              <Footer />
           </div>
         </Providers>
-
-        {/* Analytics Scripts */}
-        <Script id="51la-init" strategy="afterInteractive">
-          {`LA.init({id:"3KHLjg97pxmoUlOB",ck:"3KHLjg97pxmoUlOB"})`}
-        </Script>
-        <Script id="51la-sdk" src="//sdk.51.la/js-sdk-pro.min.js" strategy="afterInteractive" />
-        
-        <Script id="bytedance-push" strategy="afterInteractive">
-          {`(function(){
-          var el = document.createElement("script");
-          el.src = "https://lf1-cdn-tos.bytegoofy.com/goofy/ttzz/push.js?b9daa89d55df3241eb01fbab9ae72cfeef91cdb255ad969a2ef5c715d5ed5baecaf7cd753709c168f20e6a2e9019123fd11e31a222d3a2fe01ad05c6b8f519b2";
-          el.id = "ttzz";
-          var s = document.getElementsByTagName("script")[0];
-          s.parentNode.insertBefore(el, s);
-          })(window)`}
-        </Script>
-        
-        <Script id="lingque-monitor" strategy="afterInteractive">
-          {`!(function(c,i,e,b){
-          var h=i.createElement("script");
-          var f=i.getElementsByTagName("script")[0];
-          h.type="text/javascript";
-          h.crossorigin=true;
-          h.onload=function(){new c[b]["Monitor"]().init({id:"3MZgcESuGaKEZn2w",sendSuspicious:true,sendSpaPv:true});};
-          f.parentNode.insertBefore(h,f);h.src=e;})(window,document,"https://sdk.51.la/perf/js-sdk-perf.min.js","LingQue");`}
-        </Script>
       </body>
     </html>
   );

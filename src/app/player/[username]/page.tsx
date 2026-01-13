@@ -4,11 +4,11 @@ import ProfileClient from '@/components/next/profile/ProfileClient';
 export const revalidate = 60; // Revalidate every minute
 
 interface Props {
-  params: { username: string };
+  params: Promise<{ username: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const username = params.username;
+  const { username } = await params;
   
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE || 'https://api.kuke.ink';

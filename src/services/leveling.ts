@@ -79,3 +79,8 @@ export const getLeaderboard = async (limit: number = 50) => {
   const response = await api.get<LeaderboardEntry[]>('/api/level/leaderboard', { params: { limit } });
   return response.data;
 };
+
+export const getMyLevelInfo = async (username: string) => {
+  const response = await api.get<LevelInfo>(`/api/level/info/${username}`);
+  return response.data;
+};

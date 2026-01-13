@@ -57,8 +57,9 @@ export async function generateStaticParams() {
   return [];
 }
 
-export default async function ActivityPage({ params }: { params: { id: string } }) {
-  const post = await getPost(params.id);
+export default async function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const post = await getPost(id);
 
   if (!post) {
     notFound();

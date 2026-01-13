@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { MessageSquare, ThumbsUp, Trash2, MessageCircle, Send, X, MoreHorizontal, Loader2, Smile, Image as ImageIcon, AtSign, Star } from 'lucide-react';
+import { MessageSquare, ThumbsUp, Trash2, MessageCircle, Send, X, MoreHorizontal, Loader2, Smile, Image as ImageIcon, AtSign, Star, Zap } from 'lucide-react';
 import MarkdownViewer from '@/components/MarkdownViewer';
 import MentionInput from './MentionInput';
 import clsx from 'clsx';
@@ -24,6 +24,11 @@ export interface UIComment {
     avatar?: string;
     custom_title?: string;
     level?: number;
+    verification?: {
+      is_verified: boolean;
+      type: string;
+      link: string;
+    };
   };
   replies?: UIComment[];
   parent_id?: number;
@@ -486,6 +491,16 @@ const CommentItem = ({
   const isOwner = currentUser && (currentUser.username === comment.author.username);
   const isReplying = replyingToId === comment.id;
 
+  const getPlatformLabel = (type: string) => {
+    const mapping: Record<string, string> = {
+      bilibili: "Bilibili",
+      douyin: "抖音",
+      kuaishou: "快手",
+      xiaohongshu: "小红书"
+    };
+    return mapping[type] || type;
+  };
+
   // Common Reply Input Area
   const replyInputArea = (
     <div 
@@ -524,12 +539,19 @@ const CommentItem = ({
   if (depth === 0) {
     return (
       <div className="flex gap-4 group">
-        <Link href={`/player/${comment.author.username}`} className="flex-shrink-0">
-          <img 
-            src={comment.author.avatar || `https://cravatar.eu/helmavatar/${comment.author.username}/64.png`}
-            alt={comment.author.username}
-            className="w-10 h-10 rounded-xl bg-slate-100 object-cover border border-slate-200 dark:border-slate-700 transition-all hover:scale-105"
-          />
+        <Link href={`/player/${comment.author.username}`} className="flex-shrink-0 block">
+          <div className="relative">
+            <img 
+              src={comment.author.avatar || `https://cravatar.eu/helmavatar/${comment.author.username}/64.png`}
+              alt={comment.author.username}
+              className="w-10 h-10 rounded-xl bg-slate-100 object-cover border border-slate-200 dark:border-slate-700 transition-all hover:scale-105 block"
+            />
+            {comment.author.verification?.is_verified && (
+               <div className="absolute -bottom-1 -right-1 z-10 bg-yellow-400 rounded-full p-0.5 border-2 border-white dark:border-slate-900 shadow-sm flex items-center justify-center" title={`认证: ${getPlatformLabel(comment.author.verification.type)}`}>
+                  <Zap className="w-3 h-3 text-white fill-current" />
+               </div>
+            )}
+          </div>
         </Link>
         
         <div className="flex-1 min-w-0">
@@ -550,6 +572,8 @@ const CommentItem = ({
                </span>
             )}
 
+
+            
             {comment.is_featured && (
                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/50 flex items-center gap-1">
                  <Star size={10} className="fill-current" />
@@ -634,16 +658,23 @@ const CommentItem = ({
   // Reply Style (Compact)
   return (
     <div className="flex gap-2 group">
-      <Link href={`/player/${comment.author.username}`} className="flex-shrink-0 mt-0.5">
-        <img 
-          src={comment.author.avatar || `https://cravatar.eu/helmavatar/${comment.author.username}/64.png`}
-          alt={comment.author.username}
-          className="w-6 h-6 rounded-lg bg-slate-100 object-cover border border-slate-200 dark:border-slate-700 transition-all hover:scale-105"
-        />
+      <Link href={`/player/${comment.author.username}`} className="flex-shrink-0 mt-0.5 block">
+        <div className="relative">
+          <img 
+            src={comment.author.avatar || `https://cravatar.eu/helmavatar/${comment.author.username}/64.png`}
+            alt={comment.author.username}
+            className="w-6 h-6 rounded-lg bg-slate-100 object-cover border border-slate-200 dark:border-slate-700 transition-all hover:scale-105 block"
+          />
+          {comment.author.verification?.is_verified && (
+              <div className="absolute -bottom-1 -right-1 z-10 bg-yellow-400 rounded-full p-0.5 border border-white dark:border-slate-900 shadow-sm scale-75 flex items-center justify-center" title={`认证: ${getPlatformLabel(comment.author.verification.type)}`}>
+                  <Zap className="w-2 h-2 text-white fill-current" />
+              </div>
+          )}
+        </div>
       </Link>
       
       <div className="flex-1 min-w-0">
-        <div className="flex flex-wrap items-baseline gap-x-2">
+        <div className="flex flex-wrap items-center gap-x-2">
             <Link 
               href={`/player/${comment.author.username}`} 
               className="font-bold text-xs text-slate-700 dark:text-slate-200 hover:text-emerald-500 transition-colors"
@@ -658,6 +689,8 @@ const CommentItem = ({
                  {comment.author.custom_title}
                </span>
             )}
+
+
             
             {comment.is_featured && (
                <span className="px-1 py-0 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/50 scale-90 origin-left flex items-center gap-1">

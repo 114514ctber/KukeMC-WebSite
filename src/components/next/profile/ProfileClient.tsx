@@ -7,7 +7,7 @@ import api, { generateUploadHeaders } from '@/utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Clock, MessageSquare, 
-  AlertCircle, Loader2, Send, Shield, 
+  AlertCircle, Loader2, Send, Shield, Zap, 
   Hash, Activity, CalendarDays,
   Reply, Trash2, X, Heart, Edit2, AlertTriangle, ThumbsUp, Image as ImageIcon, Upload, MessageCircle,
   UserPlus, UserMinus, Bookmark, Ban,
@@ -102,6 +102,11 @@ interface PlayerDetails {
   warn_history: any[];
   warn_count: number;
   level_info?: LevelInfo;
+  verification?: {
+    is_verified: boolean;
+    type: string;
+    link: string;
+  };
 }
 
 interface Message {
@@ -116,6 +121,11 @@ interface Message {
   replies?: Message[];
   likes: number;
   is_liked: boolean;
+  verification?: {
+    is_verified: boolean;
+    type: string;
+    link: string;
+  };
 }
 
 const ADMIN_KEY_STORAGE = 'admin_key'; // Deprecated, but kept to avoid build errors if referenced elsewhere temporarily
@@ -252,6 +262,20 @@ const ProfileClient = () => {
     };
   }, [autoplayBlocked]);
 
+
+  const getPlatformLabel = (type: string) => {
+    const mapping: Record<string, string> = {
+      bilibili: "Bilibili UP主",
+      douyin: "抖音主播",
+      kuaishou: "快手主播",
+      xiaohongshu: "小红书博主"
+    };
+    return mapping[type] || type;
+  };
+
+  const getPlatformIcon = (type: string) => {
+    return Shield;
+  };
 
   // Album State
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -839,7 +863,8 @@ const ProfileClient = () => {
         nickname: msg.player,
         avatar: `https://cravatar.eu/helmavatar/${msg.player}/48.png`,
         level: msg.level,
-        custom_title: msg.custom_title
+        custom_title: msg.custom_title,
+        verification: msg.verification
       },
       likes_count: msg.likes,
       is_liked: msg.is_liked,
@@ -1132,12 +1157,21 @@ const ProfileClient = () => {
                   </div>
                 )}
               </div>
-              <div className={clsx(
-                "absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center shadow-lg",
-                details.online_now ? "bg-green-500" : "bg-slate-400"
-              )} title={details.online_now ? "在线" : "离线"}>
-                {details.online_now && <div className="w-2 h-2 bg-white rounded-full animate-ping" />}
-              </div>
+              {/* Verification Badge on Avatar */}
+              {details.verification?.is_verified && (
+                 <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-yellow-400 border-4 border-white dark:border-slate-900 flex items-center justify-center shadow-lg z-20" title={`认证: ${getPlatformLabel(details.verification.type)}`}>
+                    <Zap className="w-4 h-4 text-white fill-current" />
+                 </div>
+              )}
+
+              {!details.verification?.is_verified && (
+                <div className={clsx(
+                  "absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center shadow-lg z-10",
+                  details.online_now ? "bg-green-500" : "bg-slate-400"
+                )} title={details.online_now ? "在线" : "离线"}>
+                  {details.online_now && <div className="w-2 h-2 bg-white rounded-full animate-ping" />}
+                </div>
+              )}
             </div>
 
             <div className="flex-1 text-center md:text-left mb-2 self-center md:self-end flex flex-col md:flex-row md:items-end justify-between w-full">
@@ -1241,6 +1275,22 @@ const ProfileClient = () => {
                      {details.ban_count} 次封禁记录
                    </span>
                 )}
+                
+                {/* Verification Badge */}
+                {details.verification?.is_verified && (
+                  <a 
+                    href={details.verification.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 text-sm font-medium flex items-center gap-1.5 hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition-colors border border-yellow-200 dark:border-yellow-800/50"
+                  >
+                    <div className="bg-yellow-400 rounded-full p-0.5 border border-white dark:border-slate-900 shadow-sm flex items-center justify-center">
+                       <Zap className="w-2.5 h-2.5 text-white fill-current" />
+                    </div>
+                    {getPlatformLabel(details.verification.type)}
+                  </a>
+                )}
+
                  {details.warn_count > 0 && (
                    <span className="px-3 py-1 rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-sm font-medium flex items-center gap-1.5">
                      <AlertTriangle size={14} />

@@ -204,8 +204,9 @@ const ServerPieChart = ({ data }: { data: { name: string, value: number }[] }) =
 
 // --- Main Page Component ---
 
-export default function Year2025UserPage({ params }: { params: { username: string } }) {
-  const username = decodeURIComponent(params.username);
+export default function Year2025UserPage() {
+  const params = useParams();
+  const username = decodeURIComponent(params.username as string);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);

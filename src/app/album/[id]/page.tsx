@@ -29,12 +29,13 @@ async function getAlbum(id: string): Promise<Post | null> {
         title: albumData.title,
         content: albumData.description || '',
         author: {
-            username: authorName,
-            nickname: authorInfo.nickname || authorName,
-            avatar: authorInfo.avatar,
-            custom_title: authorInfo.custom_title,
-            level: authorInfo.level || 0
-        },
+                username: authorName,
+                nickname: authorInfo.nickname || authorName,
+                avatar: authorInfo.avatar,
+                custom_title: authorInfo.custom_title,
+                level: authorInfo.level || 0,
+                verification: authorInfo.verification
+            },
         created_at: albumData.created_at,
         likes_count: albumData.likes,
         comments_count: albumData.comment_count || (albumData.comments?.length || 0),
@@ -82,8 +83,9 @@ export async function generateStaticParams() {
   return [];
 }
 
-export default async function AlbumPage({ params }: { params: { id: string } }) {
-  const post = await getAlbum(params.id);
+export default async function AlbumPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const post = await getAlbum(id);
 
   if (!post) {
     notFound();

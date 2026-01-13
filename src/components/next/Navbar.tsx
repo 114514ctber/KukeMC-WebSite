@@ -27,7 +27,8 @@ import {
   Moon,
   Monitor,
   MessageCircle,
-  Swords
+  Swords,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';

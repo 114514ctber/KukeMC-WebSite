@@ -5,7 +5,7 @@ import Link from 'next/link';
 import MarkdownViewer from '@/components/MarkdownViewer';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Heart, MessageSquare, Bookmark, Share2, Trash2, Check, Edit2, Send, X, Loader2, Eye, Pin, Award, Shield } from 'lucide-react';
+import { Heart, MessageSquare, Bookmark, Share2, Trash2, Check, Edit2, Send, X, Loader2, Eye, Pin, Award, Shield, Zap } from 'lucide-react';
 import { Post, Comment } from '@/types/activity';
 import { useAuth } from '@/context/AuthContext';
 import { toggleLikePost, toggleCollectPost, deletePost } from '@/services/activity';
@@ -89,7 +89,8 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
                     nickname: commentAuthor.nickname || commentAuthor.username || 'User',
                     custom_title: commentAuthor.custom_title,
                     level: c.level,
-                    avatar: commentAuthor.avatar
+                    avatar: commentAuthor.avatar,
+                    verification: c.verification
                 },
                 replies: []
             };
@@ -239,6 +240,16 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
     }
   };
 
+  const getPlatformLabel = (type: string) => {
+    const mapping: Record<string, string> = {
+      bilibili: "Bilibili UP主",
+      douyin: "抖音主播",
+      kuaishou: "快手主播",
+      xiaohongshu: "小红书博主"
+    };
+    return mapping[type] || type;
+  };
+
   const handleFollow = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -345,7 +356,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Link href={`/player/${post.author.username}`} className="flex-shrink-0">
+            <Link href={`/player/${post.author.username}`} className="flex-shrink-0 relative">
               <img 
                 src={post.author.avatar || `https://cravatar.eu/helmavatar/${post.author.username}/128.png`}
                 alt={post.author.username}
@@ -354,6 +365,11 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
                     (e.target as HTMLImageElement).src = 'https://cravatar.eu/helmavatar/MHF_Steve/128.png';
                 }}
               />
+              {post.author.verification?.is_verified && (
+                 <div className="absolute -bottom-1 -right-1 z-10 bg-yellow-400 rounded-full p-0.5 border-2 border-white dark:border-slate-900 shadow-sm">
+                    <Shield className="w-2 h-2 text-white fill-current" />
+                 </div>
+              )}
             </Link>
             <div>
               <div className="flex items-center gap-2">
@@ -375,6 +391,18 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50">
                      {post.author.custom_title}
                    </span>
+                )}
+
+                {post.author.verification?.is_verified && (
+                  <a 
+                    href={post.author.verification.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center justify-center w-4 h-4 rounded-full bg-yellow-400 text-white hover:bg-yellow-500 transition-colors shadow-sm"
+                    title={`认证: ${getPlatformLabel(post.author.verification.type)}`}
+                  >
+                     <Shield className="w-2.5 h-2.5 fill-current" />
+                  </a>
                 )}
                 
                 {/* Follow Button */}
@@ -696,12 +724,19 @@ const CommentItem = ({ comment, onReply }: { comment: Comment, onReply: (comment
   
   return (
     <div className="flex gap-3 group">
-      <Link href={`/player/${comment.author.username}`} className="flex-shrink-0">
-        <img 
-          src={comment.author.avatar || `https://cravatar.eu/helmavatar/${comment.author.username}/64.png`}
-          alt={comment.author.username}
-          className="w-8 h-8 rounded-lg bg-slate-100"
-        />
+      <Link href={`/player/${comment.author.username}`} className="flex-shrink-0 block">
+        <div className="relative">
+          <img 
+            src={comment.author.avatar || `https://cravatar.eu/helmavatar/${comment.author.username}/64.png`}
+            alt={comment.author.username}
+            className="w-8 h-8 rounded-lg bg-slate-100 block"
+          />
+          {comment.author.verification?.is_verified && (
+              <div className="absolute -bottom-1 -right-1 z-10 bg-yellow-400 rounded-full p-0.5 border-2 border-white dark:border-slate-900 shadow-sm flex items-center justify-center">
+              <Zap className="w-2 h-2 text-white fill-current" />
+              </div>
+          )}
+        </div>
       </Link>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
@@ -732,12 +767,19 @@ const CommentItem = ({ comment, onReply }: { comment: Comment, onReply: (comment
           <div className="mt-2 space-y-3 pl-3 border-l-2 border-slate-100 dark:border-slate-800">
             {comment.replies.map(reply => (
               <div key={reply.id} className="flex gap-2">
-                <Link href={`/player/${reply.author.username}`} className="flex-shrink-0">
-                  <img 
-                    src={reply.author.avatar || `https://cravatar.eu/helmavatar/${reply.author.username}/64.png`}
-                    alt={reply.author.username}
-                    className="w-6 h-6 rounded bg-slate-100"
-                  />
+                <Link href={`/player/${reply.author.username}`} className="flex-shrink-0 block">
+                  <div className="relative">
+                    <img 
+                      src={reply.author.avatar || `https://cravatar.eu/helmavatar/${reply.author.username}/64.png`}
+                      alt={reply.author.username}
+                      className="w-6 h-6 rounded bg-slate-100 block"
+                    />
+                    {reply.author.verification?.is_verified && (
+                        <div className="absolute -bottom-1 -right-1 z-10 bg-yellow-400 rounded-full p-[1px] border border-white dark:border-slate-900 shadow-sm flex items-center justify-center">
+                        <Zap className="w-1.5 h-1.5 text-white fill-current" />
+                        </div>
+                    )}
+                  </div>
                 </Link>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
