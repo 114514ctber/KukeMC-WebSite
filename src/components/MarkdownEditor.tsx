@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
@@ -17,18 +17,28 @@ import Underline from '@tiptap/extension-underline';
 import Highlight from '@tiptap/extension-highlight';
 import Mention from '@tiptap/extension-mention';
 import { Markdown } from 'tiptap-markdown';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { createLowlight, common } from 'lowlight';
+import markdownit from 'markdown-it';
+import taskLists from 'markdown-it-task-lists';
+import 'katex/dist/katex.min.css';
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
 import { 
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3, Heading4,
   List, ListOrdered, CheckSquare, Quote, Code, Link as LinkIcon, 
   Image as ImageIcon, Table as TableIcon, Undo, Redo, 
-  Unlink, Plus, ChevronDown, Highlighter, Underline as UnderlineIcon, X, Check
+  Unlink, Plus, ChevronDown, Highlighter, Underline as UnderlineIcon, X, Check,
+  Sigma
 } from 'lucide-react';
 import clsx from 'clsx';
 import api, { generateUploadHeaders } from '../utils/api';
 import './MarkdownEditor.css';
+import './MarkdownCodeHighlight.css';
 import MentionList from './MarkdownEditorMentionList';
+import { MathExtension } from './extensions/MathExtension';
+
+const lowlight = createLowlight(common);
 
 interface MarkdownEditorProps {
   value: string;
@@ -410,6 +420,9 @@ const MenuBar = ({ editor, onImageUpload }: { editor: any, onImageUpload: () => 
         <MenuButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} isActive={editor.isActive('codeBlock')} title="Code Block">
           <Code size={16} />
         </MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().insertContent(' $x$ ').run()} title="Insert Math">
+          <Sigma size={16} />
+        </MenuButton>
       </div>
       
       <Divider />
@@ -609,6 +622,58 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [isMounted, setIsMounted] = React.useState(false);
   const bubbleMenuRef = useRef<HTMLDivElement>(null);
 
+  // Initialize markdown-it with plugins for initial/sync parsing
+  const md = useMemo(() => {
+    const m = markdownit({
+      html: true,
+      breaks: true,
+      linkify: true,
+    });
+    
+    m.use(taskLists);
+
+    // Custom inline math rule for $...$
+    m.inline.ruler.before('escape', 'math', (state, silent) => {
+      const start = state.pos;
+      const max = state.posMax;
+      
+      if (state.src[start] !== '$') { return false; }
+      
+      // Attempt to find closing $
+      let pos = start + 1;
+      let found = false;
+      
+      while (pos < max) {
+        if (state.src[pos] === '$' && state.src[pos - 1] !== '\\') {
+          found = true;
+          break;
+        }
+        pos++;
+      }
+      
+      if (!found) { return false; }
+      
+      if (silent) { return true; }
+      
+      const content = state.src.slice(start + 1, pos);
+      // We render to our custom span, so Tiptap parses it via MathExtension
+      const token = state.push('math_inline', 'span', 0);
+      token.attrs = [['data-type', 'math'], ['data-latex', content]];
+      token.content = content;
+      
+      state.pos = pos + 1;
+      return true;
+    });
+
+    m.renderer.rules.math_inline = (tokens, idx) => {
+      const token = tokens[idx];
+      const latex = token.attrs?.find(attr => attr[0] === 'data-latex')?.[1] || '';
+      return `<span data-type="math" data-latex="${m.utils.escapeHtml(latex)}"></span>`;
+    };
+
+    return m;
+  }, []);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -669,6 +734,10 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         heading: {
           levels: [1, 2, 3, 4],
         },
+        codeBlock: false,
+      }),
+      CodeBlockLowlight.configure({
+        lowlight,
       }),
       Placeholder?.configure({
         placeholder,
@@ -815,10 +884,12 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       }
 
       if (value !== currentContent) {
-        editor.commands.setContent(value);
+        // Use our custom markdown-it to parse markdown including math
+        const html = md.render(value);
+        editor.commands.setContent(html);
       }
     }
-  }, [value, editor]);
+  }, [value, editor, md]);
 
   const onImageSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

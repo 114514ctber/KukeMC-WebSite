@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import api, { generateUploadHeaders } from '@/utils/api';
+import { getThumbnailUrl } from '@/utils/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Clock, MessageSquare, 
@@ -130,15 +131,6 @@ interface Message {
 
 const ADMIN_KEY_STORAGE = 'admin_key'; // Deprecated, but kept to avoid build errors if referenced elsewhere temporarily
 
-
-const getThumbnailUrl = (url: string) => {
-  if (!url) return url;
-  // Naming convention: name.ext -> name_thumb.ext
-  const parts = url.split('.');
-  if (parts.length < 2) return url;
-  const ext = parts.pop();
-  return `${parts.join('.')}_thumb.${ext}`;
-};
 
 const ProfileClient = () => {
   const params = useParams();
@@ -1719,7 +1711,7 @@ const ProfileClient = () => {
                             {(item.data as Post).images && (item.data as Post).images!.length > 0 ? (
                                <div className="relative h-[50%] overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0">
                                  <img 
-                                   src={(item.data as Post).images![0]} 
+                                   src={getThumbnailUrl((item.data as Post).images![0])} 
                                    alt={(item.data as Post).title}
                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                  />

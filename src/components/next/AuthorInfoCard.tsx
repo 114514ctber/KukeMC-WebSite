@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Author, Post } from '@/types/activity';
 import { User, Shield, MapPin, Calendar, Plus, Check } from 'lucide-react';
 import api from '@/utils/api';
+import { getThumbnailUrl } from '@/utils/image';
 import { getFollowStats, followUser, unfollowUser } from '@/services/follow';
 import { getPosts } from '@/services/activity';
 import { useAuth } from '@/context/AuthContext';
@@ -186,7 +187,7 @@ const AuthorInfoCard: React.FC<AuthorInfoCardProps> = ({ author, className }) =>
                             <div className="flex gap-3">
                                 {post.images && post.images.length > 0 ? (
                                     <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0">
-                                        <img src={post.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                                        <img src={getThumbnailUrl(post.images[0])} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                                     </div>
                                 ) : (
                                     <div className="w-12 h-12 rounded-lg bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center shrink-0 text-slate-400">

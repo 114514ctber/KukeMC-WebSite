@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import ImageExtension from '@tiptap/extension-image';
@@ -15,8 +15,19 @@ import Underline from '@tiptap/extension-underline';
 import Highlight from '@tiptap/extension-highlight';
 import Mention from '@tiptap/extension-mention';
 import { Markdown } from 'tiptap-markdown';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { createLowlight, common } from 'lowlight';
+import markdownit from 'markdown-it';
+import markdownItKatex from '@vscode/markdown-it-katex';
+import taskLists from 'markdown-it-task-lists';
 import clsx from 'clsx';
+import 'katex/dist/katex.min.css';
 import './MarkdownEditor.css'; // Re-use styles
+import './MarkdownCodeHighlight.css';
+import { MathExtension } from './extensions/MathExtension';
+import { MathBlockExtension } from './extensions/MathBlockExtension';
+
+const lowlight = createLowlight(common);
 
 interface MarkdownViewerProps {
   content: string;
@@ -26,9 +37,31 @@ interface MarkdownViewerProps {
 }
 
 const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className, maxHeight, disableImages = false }) => {
-  // Use a key to force re-initialization if content changes significantly? 
-  // No, use setContent in useEffect.
-  
+  // Initialize markdown-it with plugins
+  const md = useMemo(() => {
+    const m = markdownit({
+      html: true,
+      breaks: true,
+      linkify: true,
+    });
+    
+    m.use(taskLists);
+    m.use(markdownItKatex);
+
+    // Custom renderers to output HTML compatible with Tiptap extensions
+    m.renderer.rules.math_inline = (tokens, idx) => {
+      const content = tokens[idx].content;
+      return `<span data-type="math" data-latex="${encodeURIComponent(content)}"></span>`;
+    };
+
+    m.renderer.rules.math_block = (tokens, idx) => {
+      const content = tokens[idx].content;
+      return `<div data-type="math-block" data-latex="${encodeURIComponent(content)}"></div>`;
+    };
+
+    return m;
+  }, []);
+
   const editor = useEditor({
     immediatelyRender: false,
     editable: false,
@@ -37,6 +70,10 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className, max
         heading: {
           levels: [1, 2, 3, 4],
         },
+        codeBlock: false, // Disable default CodeBlock to use Lowlight
+      }),
+      CodeBlockLowlight.configure({
+        lowlight,
       }),
       !disableImages ? ImageExtension : undefined,
       LinkExtension.configure({
@@ -60,13 +97,15 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className, max
           class: 'text-blue-500 bg-blue-100 dark:bg-blue-900 rounded px-1 py-0.5 font-medium decoration-clone',
         },
       }),
+      MathExtension,
+      MathBlockExtension,
       Markdown.configure({
         html: true,
         transformPastedText: true,
         transformCopiedText: true,
       }),
     ].filter(Boolean) as any,
-    content: content, // Initial content
+    content: '', // Initial empty, we set it in useEffect
     editorProps: {
       attributes: {
         class: clsx(
@@ -81,20 +120,13 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className, max
   // Update content when prop changes
   useEffect(() => {
     if (editor && content) {
-       // We can check if content is different to avoid unnecessary updates
-       // But checking markdown vs internal state is hard.
-       // editor.commands.setContent(content) parses it again.
-       // Since this is a viewer, updates might be infrequent (e.g. edit save).
-       // We can just set it.
+       // Convert Markdown to HTML using our custom markdown-it instance
+       const html = md.render(content);
        
-       // Optimization: check if existing content is same?
-       // Only if we can get markdown back efficiently.
-       // For now, just set it.
-       
-       // Use { emitUpdate: false } to avoid triggering update loops if we had listeners
-       editor.commands.setContent(content, false); 
+       // Set content as HTML
+       editor.commands.setContent(html, false); 
     }
-  }, [content, editor]);
+  }, [content, editor, md]);
 
   if (!editor) {
     return null;

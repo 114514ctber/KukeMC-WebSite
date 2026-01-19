@@ -7,14 +7,20 @@ import { Post } from '@/types/activity';
 export const revalidate = 60;
 
 async function getAlbum(id: string): Promise<Post | null> {
+  // Validate ID is numeric
+  if (!/^\d+$/.test(id)) {
+    return null;
+  }
+
   try {
     const res = await fetch(`https://api.kuke.ink/api/album/${id}`, {
       next: { revalidate: 60 }
     });
     
     if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error('Failed to fetch album');
+        if (res.status === 404 || res.status === 422) return null;
+        console.error(`Failed to fetch album: ${res.status} ${res.statusText}`);
+        throw new Error(`Failed to fetch album: ${res.status}`);
     }
     
     const albumData = await res.json();
@@ -29,13 +35,13 @@ async function getAlbum(id: string): Promise<Post | null> {
         title: albumData.title,
         content: albumData.description || '',
         author: {
-                username: authorName,
-                nickname: authorInfo.nickname || authorName,
-                avatar: authorInfo.avatar,
-                custom_title: authorInfo.custom_title,
-                level: authorInfo.level || 0,
-                verification: authorInfo.verification
-            },
+            username: authorName,
+            nickname: authorInfo.nickname || authorName,
+            avatar: authorInfo.avatar,
+            custom_title: authorInfo.custom_title,
+            level: authorInfo.level || 0,
+            verification: authorInfo.verification
+        },
         created_at: albumData.created_at,
         likes_count: albumData.likes,
         comments_count: albumData.comment_count || (albumData.comments?.length || 0),
@@ -46,13 +52,14 @@ async function getAlbum(id: string): Promise<Post | null> {
         tags: []
     };
   } catch (e) {
-    console.error(e);
+    console.error('Error in getAlbum:', e);
     return null;
   }
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const post = await getAlbum(params.id);
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const post = await getAlbum(id);
   
   if (!post) {
     return {

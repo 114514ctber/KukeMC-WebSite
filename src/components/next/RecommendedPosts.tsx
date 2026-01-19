@@ -1,7 +1,10 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Post } from '@/types/activity';
 import { getPosts } from '@/services/activity';
+import { getThumbnailUrl } from '@/utils/image';
 import { Loader2, Sparkles } from 'lucide-react';
 
 interface RecommendedPostsProps {
@@ -68,7 +71,7 @@ const RecommendedPosts: React.FC<RecommendedPostsProps> = ({ currentPostId, tags
               <div className="flex gap-3">
                 {post.images && post.images.length > 0 && (
                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-slate-900">
-                     <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                     <img src={getThumbnailUrl(post.images[0])} alt={post.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                    </div>
                 )}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">

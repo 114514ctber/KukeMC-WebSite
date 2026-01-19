@@ -7,25 +7,31 @@ export const revalidate = 60;
 
 async function getNews(id: string) {
   // Use absolute URL for server-side fetch
+  if (!/^\d+$/.test(id)) {
+    return null;
+  }
+
   try {
     const res = await fetch(`https://api.kuke.ink/api/website/news/${id}`, {
       next: { revalidate: 60 }
     });
     
     if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error('Failed to fetch news');
+        if (res.status === 404 || res.status === 422) return null;
+        console.error(`Failed to fetch news: ${res.status} ${res.statusText}`);
+        throw new Error(`Failed to fetch news: ${res.status}`);
     }
     
     return res.json();
   } catch (e) {
-    console.error(e);
+    console.error('Error in getNews:', e);
     return null;
   }
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const news = await getNews(params.id);
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const news = await getNews(id);
   
   if (!news) {
     return {

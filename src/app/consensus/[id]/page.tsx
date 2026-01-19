@@ -6,25 +6,31 @@ import ProposalDetailClient from '@/components/next/ProposalDetailClient';
 export const revalidate = 60;
 
 async function getProposal(id: string) {
+  if (!/^\d+$/.test(id)) {
+    return null;
+  }
+
   try {
     const res = await fetch(`https://api.kuke.ink/api/consensus/proposals/${id}`, {
       next: { revalidate: 60 }
     });
     
     if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error('Failed to fetch proposal');
+        if (res.status === 404 || res.status === 422) return null;
+        console.error(`Failed to fetch proposal: ${res.status} ${res.statusText}`);
+        throw new Error(`Failed to fetch proposal: ${res.status}`);
     }
     
     return res.json();
   } catch (e) {
-    console.error(e);
+    console.error('Error in getProposal:', e);
     return null;
   }
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const proposal = await getProposal(params.id);
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const proposal = await getProposal(id);
   
   if (!proposal) {
     return {

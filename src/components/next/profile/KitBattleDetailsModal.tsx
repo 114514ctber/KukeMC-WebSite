@@ -241,8 +241,8 @@ export default function KitBattleDetailsModal({ isOpen, onClose, stats }: Props)
                           key={tab}
                           onClick={() => setActiveTab(tab)}
                           className={clsx(
-                            "relative px-4 py-1.5 text-sm font-medium rounded-lg transition-all duration-300 z-10",
-                            activeTab === tab ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white/70"
+                            "relative px-4 py-1.5 text-sm font-medium rounded-lg transition-all duration-300 z-10 outline-none",
+                            activeTab === tab ? "text-gray-950 dark:text-white" : "text-gray-500 dark:text-white/40 hover:text-gray-700 dark:hover:text-white/70"
                           )}
                         >
                           {activeTab === tab && (
@@ -254,7 +254,7 @@ export default function KitBattleDetailsModal({ isOpen, onClose, stats }: Props)
                               transition={{ duration: 0.2 }}
                             />
                           )}
-                          {PERIOD_LABELS[tab]}
+                          <span className="relative z-10">{PERIOD_LABELS[tab]}</span>
                         </button>
                       ))}
                    </div>

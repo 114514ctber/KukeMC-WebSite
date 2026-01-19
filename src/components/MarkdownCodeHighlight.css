@@ -1,0 +1,151 @@
+/* GitHub Dark (ish) Theme for Highlight.js */
+/* Adapted for Tiptap CodeBlockLowlight */
+
+.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 0.5em;
+  color: #c9d1d9;
+  background: #0d1117;
+}
+
+.hljs-comment,
+.hljs-punctuation {
+  color: #8b949e;
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-meta {
+  color: #79c0ff;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-section,
+.hljs-selector-tag {
+  color: #ff7b72;
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  color: #d2a8ff;
+}
+
+.hljs-name,
+.hljs-type {
+  color: #ff7b72; /* was #d2a8ff, but standard github uses red for tags */
+}
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-link,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: #79c0ff;
+}
+
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+  color: #a5d6ff;
+}
+
+.hljs-literal {
+  color: #79c0ff;
+}
+
+.hljs-quote,
+.hljs-deletion {
+  color: #ffa198;
+}
+
+.hljs-regexp {
+  color: #a5d6ff;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+/* Tiptap specific overrides for CodeBlockLowlight */
+pre {
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background: none;
+  color: inherit;
+  font-size: 0.875rem;
+  padding: 0;
+}
+
+/* Light mode overrides */
+:root:not(.dark) .hljs {
+  background: #f6f8fa;
+  color: #24292f;
+}
+
+:root:not(.dark) pre {
+  background: #f6f8fa;
+  color: #24292f;
+}
+
+:root:not(.dark) .hljs-comment,
+:root:not(.dark) .hljs-punctuation {
+  color: #6e7781;
+}
+
+:root:not(.dark) .hljs-attr,
+:root:not(.dark) .hljs-attribute,
+:root:not(.dark) .hljs-meta {
+  color: #0550ae;
+}
+
+:root:not(.dark) .hljs-doctag,
+:root:not(.dark) .hljs-keyword,
+:root:not(.dark) .hljs-meta .hljs-keyword,
+:root:not(.dark) .hljs-section,
+:root:not(.dark) .hljs-selector-tag {
+  color: #cf222e;
+}
+
+:root:not(.dark) .hljs-title,
+:root:not(.dark) .hljs-title.class_,
+:root:not(.dark) .hljs-title.class_.inherited__,
+:root:not(.dark) .hljs-title.function_ {
+  color: #8250df;
+}
+
+:root:not(.dark) .hljs-name,
+:root:not(.dark) .hljs-type {
+  color: #cf222e; 
+}
+
+:root:not(.dark) .hljs-variable,
+:root:not(.dark) .hljs-template-variable,
+:root:not(.dark) .hljs-link,
+:root:not(.dark) .hljs-selector-attr,
+:root:not(.dark) .hljs-selector-pseudo {
+  color: #0550ae;
+}
+
+:root:not(.dark) .hljs-string,
+:root:not(.dark) .hljs-symbol,
+:root:not(.dark) .hljs-bullet,
+:root:not(.dark) .hljs-addition {
+  color: #0a3069;
+}

@@ -7,26 +7,33 @@ import { Post } from '@/types/activity';
 export const revalidate = 60;
 
 async function getPost(id: string): Promise<Post | null> {
+  // Validate ID is numeric
+  if (!/^\d+$/.test(id)) {
+    return null;
+  }
+
   try {
     const res = await fetch(`https://api.kuke.ink/api/posts/${id}`, {
       next: { revalidate: 60 }
     });
     
     if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error('Failed to fetch post');
+        if (res.status === 404 || res.status === 422) return null;
+        console.error(`Failed to fetch post: ${res.status} ${res.statusText}`);
+        throw new Error(`Failed to fetch post: ${res.status}`);
     }
     
     const data = await res.json();
     return data;
   } catch (e) {
-    console.error(e);
+    console.error('Error in getPost:', e);
     return null;
   }
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const post = await getPost(params.id);
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const post = await getPost(id);
   
   if (!post) {
     return {

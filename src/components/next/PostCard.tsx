@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CreatePostModal from './CreatePostModal';
 import CommentSection, { UIComment } from './CommentSection';
 import api from '@/utils/api';
+import { getThumbnailUrl } from '@/utils/image';
 import MentionInput from './MentionInput';
 import { useCurrentUserLevel } from '@/hooks/useCurrentUserLevel';
 import { useToast } from '@/context/ToastContext';
@@ -479,7 +480,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post, onUpdate, on
                 {post.images.slice(0, 3).map((img, idx) => (
                   <div key={idx} className={clsx("relative rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700 aspect-video", post.images!.length === 1 && "aspect-[2/1]")}>
                     <img 
-                      src={img} 
+                      src={getThumbnailUrl(img)} 
                       alt={`Image ${idx + 1}`} 
                       className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                     />
