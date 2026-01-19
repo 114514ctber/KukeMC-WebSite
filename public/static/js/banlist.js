@@ -9,13 +9,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatDate(dateString) {
         if (!dateString || dateString === "forever") return "永久";
         
-        // 处理带微秒和时区的日期格式: 2025-07-27T07:04:56.089000 +0800
+        // 处理带微秒和时区的日期格式: 2026-07-27T07:04:56.089000 +0800
         let formattedString = dateString;
         if (dateString.includes('.')) {
             // 移除微秒部分并重新组合日期字符串
             const parts = dateString.split(' ');
             if (parts.length === 3) {
-                // 格式为: 2025-07-27T07:04:56.089000 +0800
+                // 格式为: 2026-07-27T07:04:56.089000 +0800
                 const dateTimePart = parts[0].split('.')[0]; // 获取日期时间部分，去掉微秒
                 const timezonePart = parts[2]; // 获取时区部分
                 formattedString = dateTimePart + ' ' + timezonePart;
